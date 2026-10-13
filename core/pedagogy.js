@@ -83,13 +83,16 @@ function freshId() {
   return [...bytes].map(v => v.toString(16).padStart(2,'0')).join('');
 }
 
-export function buildAttempt(question, answer, mode, track) {
+export const createSessionId = () => freshId();
+
+export function buildAttempt(question, answer, mode, track, sessionId=null) {
   const result = checkAnswer(question, answer);
   if (!result.valid) throw new Error(result.message);
   return {
     id: freshId(), questionId: question.id, topic: question.topic,
     mode, track, correct: result.correct, answer: String(answer).slice(0,80),
     date: new Date().toISOString(),
+    ...(mode==='assessment' && sessionId ? {sessionId} : {}),
   };
 }
 
@@ -104,11 +107,11 @@ export function validateBackup(data) {
   };
   const ids = new Set();
   const attempts = data.attempts.map(a => {
-    if (!a || typeof a.id !== 'string' || a.id.length>100 || ids.has(a.id) || !QUESTION_BY_ID[a.questionId] || !['diagnostic','practice'].includes(a.mode) || !['support','academy'].includes(a.track) || typeof a.correct !== 'boolean' || typeof a.date !== 'string' || !Number.isFinite(Date.parse(a.date)) || a.topic !== QUESTION_BY_ID[a.questionId].topic || typeof a.answer !== 'string' || a.answer.length>80 || checkAnswer(QUESTION_BY_ID[a.questionId],a.answer).correct !== a.correct) {
+    if (!a || typeof a.id !== 'string' || a.id.length>100 || ids.has(a.id) || !QUESTION_BY_ID[a.questionId] || !['diagnostic','practice','assessment'].includes(a.mode) || (a.mode==='assessment' && (typeof a.sessionId !== 'string' || !/^[a-zA-Z0-9-]{8,100}$/.test(a.sessionId))) || !['support','academy'].includes(a.track) || typeof a.correct !== 'boolean' || typeof a.date !== 'string' || !Number.isFinite(Date.parse(a.date)) || a.topic !== QUESTION_BY_ID[a.questionId].topic || typeof a.answer !== 'string' || a.answer.length>80 || checkAnswer(QUESTION_BY_ID[a.questionId],a.answer).correct !== a.correct) {
       throw new Error('La copia contiene un registro inválido. No se importó nada.');
     }
     ids.add(a.id);
-    return { id:a.id, questionId:a.questionId, topic:a.topic, mode:a.mode, track:a.track, correct:a.correct, answer:a.answer, date:a.date };
+    return { id:a.id, questionId:a.questionId, topic:a.topic, mode:a.mode, track:a.track, correct:a.correct, answer:a.answer, date:a.date, ...(a.mode==='assessment' ? {sessionId:a.sessionId} : {}) };
   });
   return { profile, attempts };
 }
