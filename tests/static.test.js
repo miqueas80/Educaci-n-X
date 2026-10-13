@@ -10,7 +10,7 @@ test('PWA declara assets locales e iconos existentes',()=>{
   assert.equal(manifest.start_url,'./index.html');
   for(const icon of manifest.icons)assert.ok(existsSync(join(ROOT,icon.src)));
   const sw=readFileSync(join(ROOT,'sw.js'),'utf8');
-  for(const resource of ['index.html','styles.css','app.js','core/storage.js','core/pedagogy.js','data/curriculum.js']) {
+  for(const resource of ['index.html','styles.css','app.js','core/storage.js','core/pedagogy.js','core/tutor.js','data/curriculum.js']) {
     assert.ok(existsSync(join(ROOT,resource)));
     assert.ok(sw.includes(resource),`Ausente del SW: ${resource}`);
   }
