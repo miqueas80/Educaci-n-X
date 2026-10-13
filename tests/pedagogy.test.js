@@ -4,13 +4,13 @@ import {parseNumber,checkAnswer, topicStats, selectNextQuestion, diagnosticQuest
 import { QUESTIONS, TOPICS } from '../data/curriculum.js';
 
 test('banco curricular íntegro, con temas y niveles', () => {
-  assert.equal(TOPICS.length,5);
-  assert.equal(QUESTIONS.length,40);
+  assert.equal(TOPICS.length,7);
+  assert.equal(QUESTIONS.length,56);
   for (const t of TOPICS) {
     assert.equal(QUESTIONS.filter(q=>q.topic===t.id).length,8);
     assert.deepEqual(new Set(QUESTIONS.filter(q=>q.topic===t.id).map(q=>q.level)),new Set([1,2,3]));
   }
-  assert.equal(new Set(QUESTIONS.map(q=>q.id)).size,40);
+  assert.equal(new Set(QUESTIONS.map(q=>q.id)).size,56);
 });
 test('respuestas numéricas aceptan fracciones, coma y signos sin evaluar código', () => {
   assert.equal(parseNumber('3/4'),.75);
@@ -38,7 +38,7 @@ test('selección adaptativa no repite antes de agotar el banco', () => {
     attempts.push({questionId:q.id,topic:'enteros',mode:'practice',correct:true});
   }
   assert.ok(selectNextQuestion('enteros',attempts));
-  assert.equal(diagnosticQuestions().length,5);
+  assert.equal(diagnosticQuestions().length,7);
   assert.equal(recommendTopic([], 'academy').id,'enteros');
 });
 test('validación de copia rechaza preguntas falsas y permite entradas sanas', () => {
