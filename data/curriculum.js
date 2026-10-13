@@ -59,6 +59,28 @@ export const TOPICS = [
     steps: ['Identificá el total.', 'Transformá el porcentaje en una fracción sobre 100.', 'Multiplicá y decidí si hay que sumar o restar.'],
     mistake: 'Confundir el descuento calculado con el precio final.',
     application: 'Descuentos, intereses simples, encuestas y estadísticas.', prereqs: ['proporcionalidad'],
+  },
+  {
+    id: 'potencias', order: 6, icon: 'x²', title: 'Potencias y raíces', tag: 'Números y operaciones',
+    duration: '25 min', level: 'Ciclo básico / ampliación',
+    objective: 'Interpretar potencias enteras y raíces cuadradas de cuadrados perfectos.',
+    intro: 'Una potencia como 2³ significa multiplicar 2 por sí mismo tres veces. Una raíz cuadrada busca el número positivo cuyo cuadrado es el dado.',
+    concept: 'En aⁿ, a es la base y n el exponente. Para a ≠ 0, a⁰ = 1. La raíz cuadrada principal de 49 es 7.',
+    example: '2³ = 2 × 2 × 2 = 8. Como 7 × 7 = 49, √49 = 7.',
+    steps: ['Identificá base, exponente u operación de raíz.', 'Aplicá las multiplicaciones o buscá el cuadrado perfecto.', 'Revisá signos, paréntesis y prioridad de operaciones.'],
+    mistake: 'Confundir (−3)² = 9 con −3² = −9, o pensar que 2³ = 2 × 3.',
+    application: 'Áreas, escalas, crecimiento repetido y mediciones.', prereqs: ['enteros'],
+  },
+  {
+    id: 'funciones', order: 7, icon: 'ƒ', title: 'Funciones lineales', tag: 'Álgebra y funciones',
+    duration: '25 min', level: 'Ciclo básico / ampliación',
+    objective: 'Leer tablas, evaluar y reconocer cambios en funciones de la forma y = mx + b.',
+    intro: 'Una función vincula cada valor de entrada x con un valor de salida y. En las funciones afines, la relación puede escribirse y = mx + b.',
+    concept: 'm indica cuánto cambia y cuando x aumenta una unidad; b es el valor de y cuando x vale cero.',
+    example: 'Si y = 2x + 3, para x = 4 resulta y = 2 × 4 + 3 = 11.',
+    steps: ['Reconocé la variable de entrada x.', 'Reemplazá x en la fórmula respetando el orden de operaciones.', 'Verificá el resultado usando una tabla de pares.'],
+    mistake: 'Confundir el coeficiente de x con el valor inicial; cuando x = 0, y vale b.',
+    application: 'Costos con tarifa inicial, gráficos de movimientos y modelos sencillos.', prereqs: ['ecuaciones','proporcionalidad'],
   }
 ];
 
@@ -106,7 +128,25 @@ export const QUESTIONS = [
   q('c5','porcentajes',2,'Una clase tiene 30 estudiantes y el 40 % eligió taller. ¿Cuántos son?',12,'30 × 40/100 = 12 estudiantes.','40 % es 0,4.'),
   q('c6','porcentajes',2,'Una entrada de $5000 aumenta 10 %. ¿Cuál es el nuevo precio?',5500,'El 10 % es $500; sumamos: $5500.','Un aumento se suma, no se resta.'),
   q('c7','porcentajes',3,'Un artículo de $4800 tiene 15 % de descuento. ¿Cuál es el precio final?',4080,'15 % de 4800 = 720. Precio final: 4800 − 720 = 4080.','Podés separar el 15 % en 10 % y 5 %.'),
-  q('c8','porcentajes',3,'El 30 % de una cantidad es 90. ¿Cuál es la cantidad total?',300,'Si 0,3 × N=90, N=90÷0,3=300.','Formá la ecuación 0,30 × x = 90.')
+  q('c8','porcentajes',3,'El 30 % de una cantidad es 90. ¿Cuál es la cantidad total?',300,'Si 0,3 × N=90, N=90÷0,3=300.','Formá la ecuación 0,30 × x = 90.'),
+
+  q('t1','potencias',1,'¿Cuánto es 2³?',8,'2³ = 2 × 2 × 2 = 8.','Multiplicá la base por sí misma tres veces.'),
+  q('t2','potencias',1,'¿Cuánto es √49? (raíz cuadrada principal)',7,'7 × 7 = 49, por eso √49 = 7.','Buscá qué número positivo multiplicado por sí mismo da 49.'),
+  q('t3','potencias',1,'¿Cuánto es 5²?',25,'5² = 5 × 5 = 25.','El exponente 2 indica dos factores iguales.'),
+  q('t4','potencias',2,'¿Cuánto es (−3)²?',9,'(−3) × (−3) = 9. Los paréntesis importan.','Multiplicá dos números negativos.'),
+  q('t5','potencias',2,'¿Cuánto es 4⁰?',1,'Toda base distinta de cero elevada a cero vale 1.','Recordá la propiedad del exponente cero.'),
+  q('t6','potencias',2,'¿Cuánto es 3² + 2³?',17,'3² = 9 y 2³ = 8, por eso 9 + 8 = 17.','Resolvé ambas potencias primero.'),
+  q('t7','potencias',3,'¿Cuánto es (2³)²?',64,'2³ = 8 y 8² = 64; también 2⁶ = 64.','Multiplicá los exponentes en una potencia de una potencia.'),
+  q('t8','potencias',3,'¿Cuánto es 2⁻²?',0.25,'2⁻² = 1/2² = 1/4 = 0,25.','El exponente negativo indica el inverso.'),
+
+  q('l1','funciones',1,'En y = 2x + 1, ¿cuánto vale y cuando x = 3?',7,'y = 2 × 3 + 1 = 7.','Reemplazá x por 3.'),
+  q('l2','funciones',1,'En y = x + 4, ¿cuánto vale y cuando x = 2?',6,'y = 2 + 4 = 6.','Sustituí el valor dado de x.'),
+  q('l3','funciones',1,'En y = 5x, ¿cuánto vale y cuando x = 0?',0,'y = 5 × 0 = 0.','Todo número por cero da cero.'),
+  q('l4','funciones',2,'En y = 3x + 2, ¿cuánto vale y cuando x = 4?',14,'3 × 4 + 2 = 14.','Primero multiplicá y después sumá.'),
+  q('l5','funciones',2,'En y = 2x + 5, ¿cuál es el valor inicial y para x = 0?',5,'Para x = 0, y = 2 × 0 + 5 = 5.','El valor inicial corresponde al término independiente.'),
+  q('l6','funciones',2,'En y = −2x + 7, ¿cuánto vale y cuando x = 3?',1,'−2 × 3 + 7 = −6 + 7 = 1.','Revisá el producto con signo negativo.'),
+  q('l7','funciones',3,'Si y = 4x − 3 e y = 9, ¿cuánto vale x?',3,'4x − 3 = 9; sumamos 3: 4x=12 y x=3.','Formá una ecuación y despejá x.'),
+  q('l8','funciones',3,'Una tarifa es y = 500 + 250x. ¿Cuánto cuesta para x = 6?',2000,'500 + 250 × 6 = 500 + 1500 = 2000.','Sumá el costo fijo al variable.')
 ];
 
 export const TOPIC_BY_ID = Object.fromEntries(TOPICS.map(t => [t.id, t]));
