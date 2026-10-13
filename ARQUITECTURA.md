@@ -1,4 +1,4 @@
-# Arquitectura técnica — EDUCACIÓN X Core 0.1
+# Arquitectura técnica — EDUCACIÓN X Core 0.2
 
 ## Límites del MVP
 
@@ -52,3 +52,12 @@ No constituye una nota ni certificación; requiere revisión empírica educativa
 - Motor de aprendizaje más sólido: ejercicios generativos validados, repaso espaciado y explicaciones multimodales verificables.
 
 **Regla principal:** El conocimiento local no depende de una API externa. Los servicios opcionales deben mejorar la experiencia sin impedir el estudio offline.
+
+## V0.2 — Profesor X y ampliación
+
+- `core/tutor.js` encapsula el tutor basado en reglas, sin llamadas de red. Consume `topicStats`, intentos y temario y devuelve explicaciones trazables.
+- `data/curriculum.js`: 7 temas/56 preguntas. Los ID previos son inmutables para mantener restauración e historial.
+- `app.js`: diagnóstico parametrizado por longitud del catálogo, plan personalizado por tema, nuevos accesos rápidos del tutor.
+- No se cambia IndexedDB v1 ni el contrato de respaldo `educacion-x-backup-v1`; no se crean campos obligatorios nuevos.
+- Se invalida caché estática PWA `educacion-x-core-v2`.
+- Validación completa de SW y IndexedDB real en Android/localhost pendiente donde el navegador del entorno imponga bloqueo de red local.
