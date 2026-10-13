@@ -1,6 +1,7 @@
 import { TOPICS, TOPIC_BY_ID, QUESTION_BY_ID } from './data/curriculum.js';
 import { checkAnswer, buildAttempt, topicStats, diagnosticStatus, recommendTopic, selectNextQuestion, diagnosticQuestions, validateBackup } from './core/pedagogy.js';
 import {openDatabase, getProfile, saveProfile, getAttempts, saveAttempt, replaceData, clearData} from './core/storage.js';
+import { learningAdvice, tutorReply } from './core/tutor.js';
 
 const app = { profile:null, attempts:[], view:'home', topicId:'enteros', activity:null, tutorReply:null, tutorQuery:'', flash:null };
 const root=document.getElementById('app');
@@ -67,31 +68,33 @@ function path(){
   return `<header class="page-head"><div><div class="eyebrow">Trayectorias conectadas</div><h1>Mis recorridos</h1><p class="lead">Dos modalidades, un mismo mapa de conocimientos y evidencias compartidas.</p></div>${selectTrack()}</header>
   <section class="grid two"><div class="card pad"><span class="topic-ico">🏫</span><h2 style="margin:13px 0 7px">Apoyo escolar</h2><p class="lead">Elegí cualquier tema que estés viendo en tu escuela. Priorizamos los conceptos que necesitás reforzar.</p><div class="buttons"><button data-action="track" data-track="support" class="btn ${!isAcademy?'ghost':''}">${!isAcademy?'Recorrido activo':'Elegir Apoyo'}</button></div></div>
   <div class="card pad"><span class="topic-ico">🎓</span><h2 style="margin:13px 0 7px">Academia independiente</h2><p class="lead">Seguí una secuencia recomendada de conceptos. Podés explorar cualquier módulo si querés.</p><div class="buttons"><button data-action="track" data-track="academy" class="btn ${isAcademy?'ghost':''}">${isAcademy?'Recorrido activo':'Elegir Academia'}</button></div></div></section>
-  <div class="section-title"><h2>${isAcademy?'Plan de Matemática · ciclo básico':'Temas disponibles para reforzar'}</h2><span class="small subtle">Propuesta piloto, no plan oficial completo</span></div>
+  <div class="section-title"><h2>${isAcademy?'Itinerario de Matemática · ciclo básico y ampliación':'Temas disponibles para reforzar'}</h2><span class="small subtle">Propuesta piloto, no plan oficial completo</span></div>
   <div class="card">${TOPICS.map((t,i)=>`<div class="module"><div class="module-left"><span class="module-num">${i+1}</span><div><b>${safe(t.title)}</b><p>${T(t).status} · ${safe(t.level)}${t.id===chosen.id?' · Recomendado':''}</p></div></div><div class="row"><span class="pill ${T(t).mastered?'good':'mid'}">${T(t).progress}%</span><button class="btn small ghost" data-action="lesson" data-topic="${t.id}">Abrir</button></div></div>`).join('')}</div>
   <p class="footnote">EDUCACIÓN X no reemplaza la inscripción a una institución educativa oficial y no expide títulos reconocidos.</p>`;
 }
 function math(){
-  return `<div class="page-head"><div><div class="eyebrow">Matemática · secundaria argentina</div><h1>Aprender es comprender.</h1><p class="lead">Cinco módulos piloto del ciclo básico, con teoría, profesor local y práctica adaptable.</p></div></div>
+  return `<div class="page-head"><div><div class="eyebrow">Matemática · secundaria argentina</div><h1>Aprender es comprender.</h1><p class="lead">${TOPICS.length} módulos piloto del ciclo básico, con teoría, profesor local y práctica adaptable.</p></div></div>
   <div class="notebox amber" style="margin-bottom:18px">Propuesta inicial inspirada en ejes generales de los NAP de Matemática del ciclo básico. No representa el programa completo de todos los años o provincias.</div>
   <div class="grid">${TOPICS.map(topicCard).join('')}</div>`;
 }
 function lesson(){
   const t=TOPIC_BY_ID[app.topicId]; if(!t) return math();
   const stats=T(t);
+  const advice=learningAdvice(t,app.attempts,app.profile.track);
   return `<div class="page-head"><div><div class="eyebrow">Matemática / ${safe(t.tag)}</div><h1>${safe(t.title)}</h1><p class="lead">Objetivo: ${safe(t.objective)}</p></div><span class="pill ${stats.mastered?'good':''}">${stats.status}</span></div>
+  <div class="notebox" role="note" style="margin-bottom:18px"><strong>Plan personalizado · Método X:</strong> ${safe(advice.headline)} ${safe(advice.action)} ${advice.prerequisite?`<div class="small subtle">${safe(advice.prerequisite)}</div>`:''}</div>
   <div class="lesson"><div class="card pad lesson-body"><div><span class="tag">Clase breve · ${t.duration}</span></div><section><h3>Empecemos por la idea</h3><p>${safe(t.intro)}</p></section>
   <section><h3>Lo importante</h3><p>${safe(t.concept)}</p></section><section><h3>Un ejemplo resuelto</h3><div class="math-example">${safe(t.example)}</div></section>
   <section><h3>Tu estrategia</h3><ol>${t.steps.map(s=>`<li>${safe(s)}</li>`).join('')}</ol></section><section><h3>Error frecuente</h3><p>${safe(t.mistake)}</p></section>
   <section><h3>¿Para qué sirve?</h3><p>${safe(t.application)}</p></section><div class="buttons"><button class="btn" data-action="start-practice" data-topic="${t.id}">Empezar práctica de 5 ejercicios →</button><button class="btn ghost" data-action="navigate" data-view="math">Volver a temas</button></div></div>
-  <aside class="tutor"><div class="tutor-icon">✦</div><h3>Profesor X · modo local</h3><p class="small subtle" style="margin-top:7px">Te acompaño con explicaciones del contenido de esta clase. No necesito Internet.</p><div class="tutor-message" role="status">${safe(app.tutorReply ?? '¿Querés otro ejemplo, un consejo para resolver o repasar el error frecuente?')}</div>
-  <div class="buttons"><button class="btn small ghost" data-action="tutor-prompt" data-prompt="ejemplo">Ejemplo</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="pasos">Pasos</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="error">Error frecuente</button></div>
-  <form id="tutor-form" style="margin-top:18px"><label for="tutor-input" class="small"><b>Tu pregunta</b></label><textarea class="input" id="tutor-input" name="question" maxlength="300" placeholder="Ej.: ¿Me explicás los pasos?" style="margin-top:7px"></textarea><button type="submit" class="btn small">Preguntar</button></form><p class="footnote">Motor explicativo basado en reglas. No es un modelo generativo ni comprende todas las preguntas.</p></aside></div>`;
+  <aside class="tutor"><div class="tutor-icon">✦</div><h3>Profesor X · Método X v0.2</h3><p class="small subtle" style="margin-top:7px">Uso tu progreso real para darte pistas y explicaciones del tema. Funciono sin Internet.</p><div class="tutor-message" role="status">${safe(app.tutorReply ?? '¿Querés otro ejemplo, un consejo para resolver o repasar el error frecuente?')}</div>
+  <div class="buttons"><button class="btn small ghost" data-action="tutor-prompt" data-prompt="ejemplo">Ejemplo</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="pasos">Pasos</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="error">Repasar error</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="mi avance">Mi avance</button></div>
+  <form id="tutor-form" style="margin-top:18px"><label for="tutor-input" class="small"><b>Tu pregunta</b></label><textarea class="input" id="tutor-input" name="question" maxlength="300" placeholder="Ej.: ¿Me explicás los pasos?" style="margin-top:7px"></textarea><button type="submit" class="btn small">Preguntar</button></form><p class="footnote">Tutor guiado basado en reglas y evidencias locales. No es un modelo generativo ni entiende consultas libres fuera del contenido.</p></aside></div>`;
 }
 function diagnostic(){
   const done=app.attempts.filter(a=>a.mode==='diagnostic');
-  return `<div class="page-head"><div><div class="eyebrow">Punto de partida · Matemática</div><h1>Descubrí qué reforzar</h1><p class="lead">Respondé cinco preguntas exploratorias, una por tema. No recibís una nota ni se certifica dominio.</p></div></div>
-  <div class="card pad" style="max-width:730px"><h2>Diagnóstico inicial</h2><p class="lead">Este recorrido detecta indicios de conocimientos previos. Cada respuesta genera una recomendación formativa.</p><div class="buttons">${button(done.length?'Repetir diagnóstico':'Empezar diagnóstico de 5 preguntas','start-diagnostic')}${button('Ver contenidos','navigate','ghost')}</div><p class="footnote">Podés aprender cualquier tema sin hacer el diagnóstico. Las respuestas quedan exclusivamente en este dispositivo.</p></div>
+  return `<div class="page-head"><div><div class="eyebrow">Punto de partida · Matemática</div><h1>Descubrí qué reforzar</h1><p class="lead">Respondé ${TOPICS.length} preguntas exploratorias, una por tema. No recibís una nota ni se certifica dominio.</p></div></div>
+  <div class="card pad" style="max-width:730px"><h2>Diagnóstico inicial</h2><p class="lead">Este recorrido detecta indicios de conocimientos previos. Cada respuesta genera una recomendación formativa.</p><div class="buttons">${button(done.length?'Repetir diagnóstico':'Empezar diagnóstico de '+TOPICS.length+' preguntas','start-diagnostic')}${button('Ver contenidos','navigate','ghost')}</div><p class="footnote">Podés aprender cualquier tema sin hacer el diagnóstico. Las respuestas quedan exclusivamente en este dispositivo.</p></div>
   <div class="section-title"><h2>Mapa orientativo</h2></div><div class="card">${TOPICS.map(t=>`<div class="module"><div class="module-left"><div class="module-num">${t.icon}</div><div><b>${safe(t.title)}</b><p>Estado de diagnóstico</p></div></div><span class="pill ${diagnosticStatus(app.attempts,t.id)==='Base detectada'?'good':''}">${diagnosticStatus(app.attempts,t.id)}</span></div>`).join('')}</div>`;
 }
 function activityView(){
@@ -100,12 +103,13 @@ function activityView(){
   const question=s.mode==='diagnostic'?s.questions[s.index]:s.question;
   const title=s.mode==='diagnostic'?'Diagnóstico exploratorio':'Práctica: '+TOPIC_BY_ID[s.topicId].title;
   const count=s.mode==='diagnostic'?s.index+1:s.count+(s.feedback?0:1);
+  const total=s.mode==='diagnostic'?s.questions.length:5;
   return `<div class="quiz"><div class="quiz-head"><div><div class="eyebrow">Motor pedagógico X</div><h1>${safe(title)}</h1></div><button class="btn small ghost" data-action="quit-activity">Salir</button></div>
-  <div class="card pad"><div class="row" style="justify-content:space-between"><span class="tag">Pregunta ${count} de 5</span><span class="pill">Nivel ${question.level}</span></div>
-  <div class="progress" style="margin-top:16px" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${count-1}" aria-label="Preguntas completadas"><div class="bar" style="width:${((count-1)/5)*100}%"></div></div>
+  <div class="card pad"><div class="row" style="justify-content:space-between"><span class="tag">Pregunta ${count} de ${total}</span><span class="pill">Nivel ${question.level}</span></div>
+  <div class="progress" style="margin-top:16px" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${count-1}" aria-label="Preguntas completadas"><div class="bar" style="width:${((count-1)/total)*100}%"></div></div>
   <h2 class="question">${safe(question.prompt)}</h2>
   ${s.feedback ? `<div class="feedback ${s.feedback.correct?'correct':'incorrect'}" role="status"><strong>${s.feedback.correct?'✓ ¡Bien resuelto!':'↗ Todavía podés mejorarlo'}</strong><p>${safe(question.explanation)}</p>${s.feedback.correct?'':`<p><b>Pista para repasar:</b> ${safe(question.hint)}</p>`}</div>
-    <div class="buttons">${button(count===5?'Ver resultados →':'Siguiente pregunta →','next-question')}${s.mode==='practice'?button('Volver a la clase','quit-activity','ghost'):''}</div>`
+    <div class="buttons">${button(count===total?'Ver resultados →':'Siguiente pregunta →','next-question')}${s.mode==='practice'?button('Volver a la clase','quit-activity','ghost'):''}</div>`
    : `<form id="answer-form"><div class="form-field"><label for="answer">Tu respuesta</label><input class="input answer-input" id="answer" name="answer" inputmode="decimal" autocomplete="off" spellcheck="false" required maxlength="48" placeholder="Ej.: 12 o 3/4" autofocus></div>
     <p class="small subtle">Se aceptan enteros, decimales con coma y fracciones.</p><div class="buttons"><button class="btn" type="submit">Comprobar respuesta →</button><button class="btn ghost" type="button" data-action="show-hint">Necesito una pista</button></div>
     ${s.hintVisible?`<div class="notebox amber" style="margin-top:15px"><strong>Pista:</strong> ${safe(question.hint)}</div>`:''}</form>`}</div>
@@ -115,7 +119,7 @@ function resultView(){
   const s=app.activity, ok=s.results.filter(r=>r.correct).length;
   const recommended=recommendTopic(app.attempts,app.profile.track);
   const isDiag=s.mode==='diagnostic';
-  return `<div class="card pad result-card"><div class="result-emoji">${ok>=4?'🌟':'🌱'}</div><div class="eyebrow">${isDiag?'Diagnóstico finalizado':'Sesión completada'}</div><h1>Respondiste ${ok} de ${s.results.length} preguntas correctamente.</h1>
+  return `<div class="card pad result-card"><div class="result-emoji">${ok>=Math.ceil(s.results.length*0.8)?'🌟':'🌱'}</div><div class="eyebrow">${isDiag?'Diagnóstico finalizado':'Sesión completada'}</div><h1>Respondiste ${ok} de ${s.results.length} preguntas correctamente.</h1>
   <p class="lead" style="margin:16px auto">${isDiag?'Ya tenemos un primer mapa orientativo. No es una calificación escolar ni prueba dominio.':'Cada intento es parte del aprendizaje. Tus avances se registraron y se compartirán entre Apoyo y Academia.'}</p>
   <div class="notebox" style="text-align:left;margin-top:22px"><strong>Recomendación del Motor X:</strong> seguir con ${safe(recommended.title)}.</div>
   <div class="buttons" style="justify-content:center">${button('Ir a la clase recomendada →','recommended')}${button('Ver mi progreso','go-progress','ghost')}</div></div>`;
@@ -152,15 +156,6 @@ function changeView(view){
   if (view==='lesson') app.tutorReply=null;
   app.view=view;app.activity=null; render(); window.scrollTo({top:0,behavior:'auto'});
 }
-function teacherReply(query,topic) {
-  const x=query.toLocaleLowerCase('es-AR');
-  if (/ejemplo|ejercicio|caso|mostr/.test(x)) return `Veamos un ejemplo:\n${topic.example}\n\n¿Podés explicar qué representa el resultado?`;
-  if (/pasos|cómo|como|resolver|hacer|procedimiento|pista|ayuda/.test(x)) return `Probá siguiendo estos pasos:\n${topic.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\nIntentá hacer el primer paso vos.`;
-  if (/error|equivoc|fall|confund/.test(x)) return `Un error frecuente es este: ${topic.mistake}\n\n¿Dónde podrías comprobar tu procedimiento?`;
-  if (/para qué|para que|sirve|vida|usar|utilidad/.test(x)) return `Lo aplicamos en: ${topic.application}\n\n¿Se te ocurre otra situación cotidiana?`;
-  if (/qué|que|defin|signif|explic|concept/.test(x)) return `${topic.intro}\n\nLa idea clave es: ${topic.concept}`;
-  return 'Puedo ayudarte con una explicación, un ejemplo, pasos para resolver, usos cotidianos o errores frecuentes. Probá preguntar: «¿Me mostrás un ejemplo?»';
-}
 
 root.addEventListener('click',async event=>{
   const btn=event.target.closest('[data-action]');if(!btn||btn.disabled)return;
@@ -179,12 +174,12 @@ root.addEventListener('click',async event=>{
     if(action==='show-hint'){app.activity.hintVisible=true;render();return;}
     if(action==='next-question'){
       const s=app.activity;if(!s?.feedback)return;
-      if(s.mode==='diagnostic'){s.index++;if(s.index>=5)s.complete=true;}
+      if(s.mode==='diagnostic'){s.index++;if(s.index>=s.questions.length)s.complete=true;}
       else {if(s.count>=5)s.complete=true;else s.question=selectNextQuestion(s.topicId,app.attempts);}
       s.feedback=null;s.hintVisible=false;render();return;
     }
     if(action==='quit-activity'){changeView(app.activity?.mode==='practice'?'lesson':'diagnostic');return;}
-    if(action==='tutor-prompt'){app.tutorReply=teacherReply(btn.dataset.prompt,TOPIC_BY_ID[app.topicId]);render();return;}
+    if(action==='tutor-prompt'){app.tutorReply=tutorReply(btn.dataset.prompt,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track);render();return;}
     if(action==='export'){
       const backup={format:'educacion-x-backup-v1',exportedAt:new Date().toISOString(),profile:app.profile,attempts:app.attempts};
       const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));
@@ -221,7 +216,7 @@ root.addEventListener('submit',async event=>{
     }
     if(form.id==='tutor-form'){
       const query=String(data.get('question')||'').trim();if(!query)return;
-      app.tutorReply=teacherReply(query,TOPIC_BY_ID[app.topicId]);render();return;
+      app.tutorReply=tutorReply(query,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track);render();return;
     }
     if(form.id==='answer-form'){
       const s=app.activity;if(!s || s.feedback)return;
