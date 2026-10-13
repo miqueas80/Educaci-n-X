@@ -1,4 +1,4 @@
-# EDUCACIÓN X Core — MVP 0.1.0
+# EDUCACIÓN X Core — MVP 0.2.0
 
 **Segunda escuela digital inteligente, en construcción.** Proyecto piloto de Matemática del ciclo básico de secundaria argentina, con dos modos vinculados: **Apoyo escolar** (refuerzo de temas) y **Academia independiente** (progresión sugerida).
 
@@ -7,15 +7,22 @@
 ## Qué funciona hoy
 
 - Perfil local sin inicio de sesión; elección de año (1.º a 6.º) y modalidad educativa.
-- Lecciones guiadas originales para números enteros, fracciones, proporcionalidad, ecuaciones lineales y porcentajes.
-- 40 ejercicios con autocorrección determinista, decimales con coma y respuestas fraccionarias (`3/4`); no se usa `eval`.
-- Diagnóstico inicial orientativo de 5 preguntas (no concede dominio).
+- Lecciones guiadas originales para números enteros, fracciones, proporcionalidad, ecuaciones lineales, porcentajes, potencias y funciones lineales.
+- 56 ejercicios con autocorrección determinista, decimales con coma y respuestas fraccionarias (`3/4`); no se usa `eval`.
+- Diagnóstico inicial orientativo de 7 preguntas (no concede dominio).
 - Selección adaptativa de preguntas por reglas: aumenta o reduce el nivel según los últimos intentos y evita repetir preguntas hasta agotar el banco.
 - Evidencia compartida entre Apoyo y Academia (registro de intentos y criterios de dominio).
-- Profesor X: tutor guiado **basado en reglas**, capaz de mostrar ejemplos, pasos, explicaciones y errores frecuentes de cada clase. **No es un LLM ni un chat generativo.**
+- Profesor X v0.2: tutor guiado **basado en reglas**, que usa la evidencia local del alumno para sugerir estudio, revisar errores recientes, mostrar ejemplos, pasos y bases recomendadas. **No es un LLM ni entiende preguntas generales.**
 - Almacenamiento local en IndexedDB; descarga e importación de respaldo JSON; borrado con confirmación; solicitud de persistencia de almacenamiento.
 - PWA sin dependencias externas: Service Worker, precaché, íconos 192/512, manifiesto y rutas relativas compatibles con GitHub Pages.
 - Interfaz adaptable a Android y escritorio.
+
+## Evolución segura desde v0.1
+
+- Mantenemos el nombre y la versión 1 de IndexedDB: no hay migración destructiva. Los 40 identificadores de ejercicios originales permanecen y se agregan 16 nuevos.
+- Exportación e importación conservan `educacion-x-backup-v1` y los datos antiguos. Apoyo y Academia mantienen un único progreso.
+- El tutor no envía preguntas ni respuestas a servidores; todas las inferencias son reglas pedagógicas transparentes. No hay IA generativa en esta versión.
+- `sw.js` aumenta su versión de caché a `educacion-x-core-v2` e incorpora el nuevo módulo offline. El navegador debe completar la instalación de la nueva versión para usarla sin conexión.
 
 ## Ejecutar en PC (Python)
 
@@ -49,6 +56,8 @@ Con Node.js 20+:
 ```bash
 npm test
 ```
+
+Las pruebas cubren también las recomendaciones personalizadas, errores recientes, prerequisitos y compatibilidad de backups. El test visual simulado se ejecuta con `python3 tests/ui_smoke_mock.py` cuando Chromium y Playwright están disponibles. Existe `python3 tests/browser_real_smoke.py` para validar IndexedDB y Service Worker sobre localhost, que debe correrse fuera de entornos que bloqueen la navegación local.
 
 Las pruebas cubren el banco curricular, corrección, seguridad del analizador numérico, diagnóstico vs dominio, selección adaptativa, formato de backups y presencia de recursos PWA.
 
@@ -106,3 +115,10 @@ Se diseñó un piloto **inspirado en áreas generales** de los NAP de Matemátic
 ## Siguiente etapa propuesta
 
 Ampliar el banco de tareas para evitar repetición a largo plazo; incorporar otras estrategias de evaluación y repaso espaciado, docentes revisores, herramientas de accesibilidad y distintos recorridos provinciales. Solo después: cuentas con permisos, sincronización cifrada, aulas institucionales y un tutor IA generativo supervisado, sin volverlo obligatorio para el aprendizaje offline.
+
+## Límites pedagógicos de v0.2
+
+- Sigue siendo un piloto del **ciclo básico y ampliación**, no un plan completo por año jurisdiccional.
+- No reemplaza al profesor humano ni emite notas o certificaciones oficiales.
+- El tutor reconoce un conjunto de intenciones en español; cuando una pregunta supera ese alcance, lo explica y propone opciones.
+- No registra conversaciones del tutor, solo los intentos numéricos de las prácticas.
