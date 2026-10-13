@@ -1,4 +1,4 @@
-# EDUCACIÓN X Core — MVP 0.2.0
+# EDUCACIÓN X Core — MVP 0.3.0
 
 **Segunda escuela digital inteligente, en construcción.** Proyecto piloto de Matemática del ciclo básico de secundaria argentina, con dos modos vinculados: **Apoyo escolar** (refuerzo de temas) y **Academia independiente** (progresión sugerida).
 
@@ -12,7 +12,9 @@
 - Diagnóstico inicial orientativo de 7 preguntas (no concede dominio).
 - Selección adaptativa de preguntas por reglas: aumenta o reduce el nivel según los últimos intentos y evita repetir preguntas hasta agotar el banco.
 - Evidencia compartida entre Apoyo y Academia (registro de intentos y criterios de dominio).
-- Profesor X v0.2: tutor guiado **basado en reglas**, que usa la evidencia local del alumno para sugerir estudio, revisar errores recientes, mostrar ejemplos, pasos y bases recomendadas. **No es un LLM ni entiende preguntas generales.**
+- Mi Academia: programa piloto en tres unidades con lecciones, criterios de dominio y evaluaciones integradoras de 5 preguntas. Aprobación interna al obtener 4/5; no certifica año escolar.
+- Profesor X con diálogo guiado por pasos (guía socrática), memoria de paso solo durante la sesión y revisión del historial de errores.
+- Profesor X v0.3: tutor guiado **basado en reglas**, que usa la evidencia local del alumno para sugerir estudio, revisar errores recientes, mostrar ejemplos, pasos y bases recomendadas. **No es un LLM ni entiende preguntas generales.**
 - Almacenamiento local en IndexedDB; descarga e importación de respaldo JSON; borrado con confirmación; solicitud de persistencia de almacenamiento.
 - PWA sin dependencias externas: Service Worker, precaché, íconos 192/512, manifiesto y rutas relativas compatibles con GitHub Pages.
 - Interfaz adaptable a Android y escritorio.
@@ -22,7 +24,7 @@
 - Mantenemos el nombre y la versión 1 de IndexedDB: no hay migración destructiva. Los 40 identificadores de ejercicios originales permanecen y se agregan 16 nuevos.
 - Exportación e importación conservan `educacion-x-backup-v1` y los datos antiguos. Apoyo y Academia mantienen un único progreso.
 - El tutor no envía preguntas ni respuestas a servidores; todas las inferencias son reglas pedagógicas transparentes. No hay IA generativa en esta versión.
-- `sw.js` aumenta su versión de caché a `educacion-x-core-v2` e incorpora el nuevo módulo offline. El navegador debe completar la instalación de la nueva versión para usarla sin conexión.
+- `sw.js` aumenta su versión de caché a `educacion-x-core-v3` e incorpora el nuevo módulo offline. El navegador debe completar la instalación de la nueva versión para usarla sin conexión.
 
 ## Ejecutar en PC (Python)
 
@@ -57,7 +59,7 @@ Con Node.js 20+:
 npm test
 ```
 
-Las pruebas cubren también las recomendaciones personalizadas, errores recientes, prerequisitos y compatibilidad de backups. El test visual simulado se ejecuta con `python3 tests/ui_smoke_mock.py` cuando Chromium y Playwright están disponibles. Existe `python3 tests/browser_real_smoke.py` para validar IndexedDB y Service Worker sobre localhost, que debe correrse fuera de entornos que bloqueen la navegación local.
+Las pruebas cubren también evaluaciones completas e incompletas, recorridos académicos, Profesor X guiado, recomendaciones personalizadas, errores recientes, prerrequisitos y compatibilidad de backups. El test visual simulado se ejecuta con `python3 tests/ui_smoke_mock.py` cuando Chromium y Playwright están disponibles. Existe `python3 tests/browser_real_smoke.py` para validar IndexedDB y Service Worker sobre localhost, que debe correrse fuera de entornos que bloqueen la navegación local.
 
 Las pruebas cubren el banco curricular, corrección, seguridad del analizador numérico, diagnóstico vs dominio, selección adaptativa, formato de backups y presencia de recursos PWA.
 
@@ -122,3 +124,17 @@ Ampliar el banco de tareas para evitar repetición a largo plazo; incorporar otr
 - No reemplaza al profesor humano ni emite notas o certificaciones oficiales.
 - El tutor reconoce un conjunto de intenciones en español; cuando una pregunta supera ese alcance, lo explica y propone opciones.
 - No registra conversaciones del tutor, solo los intentos numéricos de las prácticas.
+
+## v0.3 — Trayecto académico independiente
+
+- `core/academy.js`: curso piloto de Matemática, tres unidades, evaluación integradora con 5 ejercicios distintos y criterio de aprobación interno de 4/5. La evaluación solo se habilita después de dominar los temas de la unidad mediante prácticas previas.
+- Las respuestas de evaluación se registran en IndexedDB `attempts` con `mode: assessment` y `sessionId` (sin migrar ni borrar la base v1). Las sesiones incompletas no son acreditadas ni se contabilizan como evaluaciones aprobadas.
+- Se sigue usando `educacion-x-backup-v1`; el validador conserva registros antiguos y valida los nuevos de evaluación. Antes de importar, exportá una copia por seguridad.
+- `core/dialogue.js`: Profesor X local con preguntas socráticas por pasos; no conversa libremente como un modelo generativo y no envía datos a un servidor.
+- La evaluación muestra explicaciones después de completar las 5 respuestas, no durante la prueba. La selección de preguntas integra niveles inicial, intermedio y alto.
+- No existe sistema de promoción escolar oficial, certificado o equivalencia curricular provincial. Son hitos pedagógicos del piloto.
+- La caché PWA pasa a `educacion-x-core-v3`, con todos los módulos nuevos precacheados.
+
+### Actualización desde 0.1/0.2
+
+La IndexedDB no cambia de versión y mantiene el perfil y los intentos existentes. La app pasa a la nueva versión cuando el Service Worker instala la caché v3; se recomienda recargar el sitio online para completar la actualización antes de probar en modo avión.

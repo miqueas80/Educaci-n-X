@@ -1,9 +1,11 @@
 import { TOPICS, TOPIC_BY_ID, QUESTION_BY_ID } from './data/curriculum.js';
-import { checkAnswer, buildAttempt, topicStats, diagnosticStatus, recommendTopic, selectNextQuestion, diagnosticQuestions, validateBackup } from './core/pedagogy.js';
+import { checkAnswer, buildAttempt, topicStats, diagnosticStatus, recommendTopic, selectNextQuestion, diagnosticQuestions, validateBackup, createSessionId } from './core/pedagogy.js';
 import {openDatabase, getProfile, saveProfile, getAttempts, saveAttempt, replaceData, clearData} from './core/storage.js';
-import { learningAdvice, tutorReply } from './core/tutor.js';
+import { learningAdvice } from './core/tutor.js';
+import { tutorTurn } from './core/dialogue.js';
+import { ACADEMY, academyStatus, unitStatus, findUnit, unitAssessmentQuestions } from './core/academy.js';
 
-const app = { profile:null, attempts:[], view:'home', topicId:'enteros', activity:null, tutorReply:null, tutorQuery:'', flash:null };
+const app = { profile:null, attempts:[], view:'home', topicId:'enteros', activity:null, tutorReply:null, tutorQuery:'', tutorState:null, flash:null };
 const root=document.getElementById('app');
 const safe = value => String(value ?? '').replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const trackTitle = t=> t==='academy' ? 'Academia independiente' : 'Apoyo escolar';
@@ -24,11 +26,11 @@ function navItem(view, icon, title) {
 function sidebar() {
   return `<aside class="sidebar"><div class="brand"><div class="logo"><img src="./assets/icon.svg" alt=""></div><div><strong>EDUCACIÓN X</strong><small>Mi escuela digital</small></div></div>
   <div class="navtitle">Mi espacio</div><nav class="nav" aria-label="Navegación principal">
-    ${navItem('home','⌂','Inicio')}${navItem('path','▦','Mis recorridos')}${navItem('math','∑','Matemática')}${navItem('diagnostic','◉','Diagnóstico')}${navItem('progress','◫','Mi progreso')}
+    ${navItem('home','⌂','Inicio')}${navItem('path','▦','Mis recorridos')}${navItem('academy','🎓','Mi academia')}${navItem('math','∑','Matemática')}${navItem('diagnostic','◉','Diagnóstico')}${navItem('progress','◫','Mi progreso')}
   </nav><div class="navtitle" style="margin-top:23px">Mi cuenta</div><nav class="nav">${navItem('settings','⚙','Datos y privacidad')}</nav><div class="sidebar-spacer"></div>
   <div class="sidecard"><b><span class="side-dot"></span>Motor X Local</b><p>Sin cuentas externas ni envío de respuestas. El progreso se guarda en este dispositivo.</p></div></aside>`;
 }
-function mobileNav() { return `<nav class="mobile-nav" aria-label="Navegación móvil">${navItem('home','⌂','Inicio')}${navItem('path','▦','Rutas')}${navItem('math','∑','Mate')}${navItem('progress','◫','Progreso')}${navItem('settings','⚙','Datos')}</nav>`; }
+function mobileNav() { return `<nav class="mobile-nav" aria-label="Navegación móvil">${navItem('home','⌂','Inicio')}${navItem('path','▦','Rutas')}${navItem('academy','🎓','Academia')}${navItem('math','∑','Mate')}${navItem('progress','◫','Progreso')}${navItem('settings','⚙','Datos')}</nav>`; }
 function setup() {
   return `<div class="setup-bg"><div class="card setup"><div class="logo"><img src="./assets/icon.svg" alt=""></div><div class="eyebrow">Bienvenido a tu segunda escuela</div>
   <h1>Tu aprendizaje empieza acá.</h1><p>Creá un perfil local. No requiere cuenta, Internet ni datos personales reales.</p>
@@ -39,7 +41,7 @@ function setup() {
   <p class="footnote">Sin registro remoto. Podés exportar tu progreso desde Datos y privacidad. Esto no otorga títulos oficiales.</p></div></div>`;
 }
 function pageTemplate(inner) {
-  const title = {home:'Mi escuela digital',path:'Mis recorridos',math:'Matemática',diagnostic:'Diagnóstico inicial',progress:'Mi progreso',settings:'Privacidad y datos',lesson:'Aprender Matemática',activity:'Práctica guiada'}[app.view] ?? 'EDUCACIÓN X';
+  const title = {home:'Mi escuela digital',path:'Mis recorridos',academy:'Mi academia',math:'Matemática',diagnostic:'Diagnóstico inicial',progress:'Mi progreso',settings:'Privacidad y datos',lesson:'Aprender Matemática',activity:'Práctica guiada'}[app.view] ?? 'EDUCACIÓN X';
   return `<div class="shell">${sidebar()}<main class="main"><header class="topbar"><h2>${title}</h2><div class="topbar-right"><span class="status ${navigator.onLine?'':'off'}" id="connection">● ${navigator.onLine?'Con red':'Sin red'}</span><span class="small subtle" title="Perfil local">${safe(app.profile.name)}</span><div class="avatar" aria-hidden="true">${safe((app.profile.name||'E').charAt(0).toUpperCase())}</div></div></header><div class="page">${inner}</div></main>${mobileNav()}</div>`;
 }
 function selectTrack() {
@@ -68,10 +70,29 @@ function path(){
   return `<header class="page-head"><div><div class="eyebrow">Trayectorias conectadas</div><h1>Mis recorridos</h1><p class="lead">Dos modalidades, un mismo mapa de conocimientos y evidencias compartidas.</p></div>${selectTrack()}</header>
   <section class="grid two"><div class="card pad"><span class="topic-ico">🏫</span><h2 style="margin:13px 0 7px">Apoyo escolar</h2><p class="lead">Elegí cualquier tema que estés viendo en tu escuela. Priorizamos los conceptos que necesitás reforzar.</p><div class="buttons"><button data-action="track" data-track="support" class="btn ${!isAcademy?'ghost':''}">${!isAcademy?'Recorrido activo':'Elegir Apoyo'}</button></div></div>
   <div class="card pad"><span class="topic-ico">🎓</span><h2 style="margin:13px 0 7px">Academia independiente</h2><p class="lead">Seguí una secuencia recomendada de conceptos. Podés explorar cualquier módulo si querés.</p><div class="buttons"><button data-action="track" data-track="academy" class="btn ${isAcademy?'ghost':''}">${isAcademy?'Recorrido activo':'Elegir Academia'}</button></div></div></section>
+  <div class="buttons"><button class="btn" data-action="navigate" data-view="academy">Explorar el programa de Academia →</button></div>
   <div class="section-title"><h2>${isAcademy?'Itinerario de Matemática · ciclo básico y ampliación':'Temas disponibles para reforzar'}</h2><span class="small subtle">Propuesta piloto, no plan oficial completo</span></div>
   <div class="card">${TOPICS.map((t,i)=>`<div class="module"><div class="module-left"><span class="module-num">${i+1}</span><div><b>${safe(t.title)}</b><p>${T(t).status} · ${safe(t.level)}${t.id===chosen.id?' · Recomendado':''}</p></div></div><div class="row"><span class="pill ${T(t).mastered?'good':'mid'}">${T(t).progress}%</span><button class="btn small ghost" data-action="lesson" data-topic="${t.id}">Abrir</button></div></div>`).join('')}</div>
   <p class="footnote">EDUCACIÓN X no reemplaza la inscripción a una institución educativa oficial y no expide títulos reconocidos.</p>`;
 }
+
+function academy(){
+  const status=academyStatus(app.attempts);
+  return `<div class="page-head"><div><div class="eyebrow">Academia independiente · Trayecto piloto</div><h1>${safe(ACADEMY.title)}</h1><p class="lead">${safe(ACADEMY.description)}</p></div><span class="pill ${status.completed?'good':''}">${status.passed}/${status.total} unidades con evaluación aprobada</span></div>
+  <div class="notebox amber" role="note" style="margin-bottom:18px"><b>Formación independiente, sin acreditación oficial.</b> Una evaluación aprobada registra un hito interno, pero no promociona de año ni reemplaza exámenes escolares.</div>
+  <div class="card pad"><h2>Tu mapa académico</h2><p class="lead">Cada unidad contiene lecciones, práctica y una evaluación integradora. Para habilitarla necesitás dominar los temas de la unidad; podés estudiar todos sin bloqueos.</p></div>
+  <div class="academy-units">${ACADEMY.units.map(unit=>{
+    const x=unitStatus(unit,app.attempts);
+    return `<section class="card pad" aria-label="${safe(unit.title)}"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px"><div><span class="eyebrow">Secuencia académica</span><h2>${safe(unit.title)}</h2><p class="lead">${safe(unit.objective)}</p></div><span class="pill ${x.passed?'good':''}">${safe(x.status)}</span></div>
+      <div class="progress" role="progressbar" aria-label="Dominio de ${safe(unit.title)}" aria-valuemin="0" aria-valuemax="${x.total}" aria-valuenow="${x.mastered}" style="margin:12px 0 16px"><div class="bar" style="width:${100*x.mastered/x.total}%"></div></div>
+      <p class="small subtle">${x.mastered}/${x.total} temas dominados con práctica · Evaluación: ${x.lastAssessment?x.lastAssessment.correct+'/5 correctas':'sin completar'}</p>
+      ${unit.topics.map((topicId,index)=>{const topic=TOPIC_BY_ID[topicId],s=T(topic);return `<div class="module"><div class="module-left"><span class="module-num">${index+1}</span><div><b>${safe(topic.title)}</b><p>Lección · práctica adaptativa · ${safe(s.status)}</p></div></div><button class="btn small ghost" data-action="lesson" data-topic="${topic.id}">Abrir clase →</button></div>`}).join('')}
+      <div class="buttons"><button class="btn ${x.ready?'':'ghost'}" data-action="start-assessment" data-unit="${unit.id}" ${x.ready?'':'disabled aria-disabled="true"'}>${x.passed?'Repetir evaluación integradora':x.ready?'Iniciar evaluación de unidad →':'Dominá los temas para evaluar'}</button></div>
+      <p class="footnote">5 preguntas distintas. Se aprueba internamente con al menos 4 correctas. Durante la evaluación no se muestran las respuestas.</p></section>`
+  }).join('')}</div>
+  ${status.completed?'<div class="notebox"><strong>Trayecto piloto completado con evidencias.</strong> No equivale a una certificación oficial.</div>':''}`;
+}
+
 function math(){
   return `<div class="page-head"><div><div class="eyebrow">Matemática · secundaria argentina</div><h1>Aprender es comprender.</h1><p class="lead">${TOPICS.length} módulos piloto del ciclo básico, con teoría, profesor local y práctica adaptable.</p></div></div>
   <div class="notebox amber" style="margin-bottom:18px">Propuesta inicial inspirada en ejes generales de los NAP de Matemática del ciclo básico. No representa el programa completo de todos los años o provincias.</div>
@@ -87,9 +108,9 @@ function lesson(){
   <section><h3>Lo importante</h3><p>${safe(t.concept)}</p></section><section><h3>Un ejemplo resuelto</h3><div class="math-example">${safe(t.example)}</div></section>
   <section><h3>Tu estrategia</h3><ol>${t.steps.map(s=>`<li>${safe(s)}</li>`).join('')}</ol></section><section><h3>Error frecuente</h3><p>${safe(t.mistake)}</p></section>
   <section><h3>¿Para qué sirve?</h3><p>${safe(t.application)}</p></section><div class="buttons"><button class="btn" data-action="start-practice" data-topic="${t.id}">Empezar práctica de 5 ejercicios →</button><button class="btn ghost" data-action="navigate" data-view="math">Volver a temas</button></div></div>
-  <aside class="tutor"><div class="tutor-icon">✦</div><h3>Profesor X · Método X v0.2</h3><p class="small subtle" style="margin-top:7px">Uso tu progreso real para darte pistas y explicaciones del tema. Funciono sin Internet.</p><div class="tutor-message" role="status">${safe(app.tutorReply ?? '¿Querés otro ejemplo, un consejo para resolver o repasar el error frecuente?')}</div>
-  <div class="buttons"><button class="btn small ghost" data-action="tutor-prompt" data-prompt="ejemplo">Ejemplo</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="pasos">Pasos</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="error">Repasar error</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="mi avance">Mi avance</button></div>
-  <form id="tutor-form" style="margin-top:18px"><label for="tutor-input" class="small"><b>Tu pregunta</b></label><textarea class="input" id="tutor-input" name="question" maxlength="300" placeholder="Ej.: ¿Me explicás los pasos?" style="margin-top:7px"></textarea><button type="submit" class="btn small">Preguntar</button></form><p class="footnote">Tutor guiado basado en reglas y evidencias locales. No es un modelo generativo ni entiende consultas libres fuera del contenido.</p></aside></div>`;
+  <aside class="tutor"><div class="tutor-icon">✦</div><h3>Profesor X · Método X v0.3</h3><p class="small subtle" style="margin-top:7px">Uso tu progreso real para darte pistas y explicaciones del tema. Funciono sin Internet.</p><div class="tutor-message" role="status">${safe(app.tutorReply ?? '¿Querés otro ejemplo, un consejo para resolver o repasar el error frecuente?')}</div>
+  <div class="buttons"><button class="btn small ghost" data-action="tutor-prompt" data-prompt="ejemplo">Ejemplo</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="guiame paso a paso">Guía interactiva</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="siguiente">Siguiente paso</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="error">Repasar error</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="mi avance">Mi avance</button></div>
+  <form id="tutor-form" style="margin-top:18px"><label for="tutor-input" class="small"><b>Tu pregunta</b></label><textarea class="input" id="tutor-input" name="question" maxlength="300" placeholder="Ej.: ¿Me explicás los pasos?" style="margin-top:7px"></textarea><button type="submit" class="btn small">Preguntar</button></form><p class="footnote">Tutor conversacional guiado, basado en reglas y evidencias locales. No es un modelo generativo ni entiende consultas libres fuera del contenido.</p></aside></div>`;
 }
 function diagnostic(){
   const done=app.attempts.filter(a=>a.mode==='diagnostic');
@@ -100,18 +121,18 @@ function diagnostic(){
 function activityView(){
   const s=app.activity; if(!s) return diagnostic();
   if (s.complete) return resultView();
-  const question=s.mode==='diagnostic'?s.questions[s.index]:s.question;
-  const title=s.mode==='diagnostic'?'Diagnóstico exploratorio':'Práctica: '+TOPIC_BY_ID[s.topicId].title;
-  const count=s.mode==='diagnostic'?s.index+1:s.count+(s.feedback?0:1);
-  const total=s.mode==='diagnostic'?s.questions.length:5;
+  const question=s.mode==='diagnostic'||s.mode==='assessment'?s.questions[s.index]:s.question;
+  const title=s.mode==='diagnostic'?'Diagnóstico exploratorio':s.mode==='assessment'?'Evaluación: '+findUnit(s.unitId).title:'Práctica: '+TOPIC_BY_ID[s.topicId].title;
+  const count=(s.mode==='diagnostic'||s.mode==='assessment')?s.index+1:s.count+(s.feedback?0:1);
+  const total=(s.mode==='diagnostic'||s.mode==='assessment')?s.questions.length:5;
   return `<div class="quiz"><div class="quiz-head"><div><div class="eyebrow">Motor pedagógico X</div><h1>${safe(title)}</h1></div><button class="btn small ghost" data-action="quit-activity">Salir</button></div>
   <div class="card pad"><div class="row" style="justify-content:space-between"><span class="tag">Pregunta ${count} de ${total}</span><span class="pill">Nivel ${question.level}</span></div>
   <div class="progress" style="margin-top:16px" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${count-1}" aria-label="Preguntas completadas"><div class="bar" style="width:${((count-1)/total)*100}%"></div></div>
-  <h2 class="question">${safe(question.prompt)}</h2>
+  <h2 class="question">${safe(question.prompt)}</h2>${s.mode==='assessment'?'<p class="small subtle">Evaluación formativa: las respuestas se corrigen al finalizar las cinco preguntas.</p>':''}
   ${s.feedback ? `<div class="feedback ${s.feedback.correct?'correct':'incorrect'}" role="status"><strong>${s.feedback.correct?'✓ ¡Bien resuelto!':'↗ Todavía podés mejorarlo'}</strong><p>${safe(question.explanation)}</p>${s.feedback.correct?'':`<p><b>Pista para repasar:</b> ${safe(question.hint)}</p>`}</div>
     <div class="buttons">${button(count===total?'Ver resultados →':'Siguiente pregunta →','next-question')}${s.mode==='practice'?button('Volver a la clase','quit-activity','ghost'):''}</div>`
    : `<form id="answer-form"><div class="form-field"><label for="answer">Tu respuesta</label><input class="input answer-input" id="answer" name="answer" inputmode="decimal" autocomplete="off" spellcheck="false" required maxlength="48" placeholder="Ej.: 12 o 3/4" autofocus></div>
-    <p class="small subtle">Se aceptan enteros, decimales con coma y fracciones.</p><div class="buttons"><button class="btn" type="submit">Comprobar respuesta →</button><button class="btn ghost" type="button" data-action="show-hint">Necesito una pista</button></div>
+    <p class="small subtle">Se aceptan enteros, decimales con coma y fracciones.</p><div class="buttons"><button class="btn" type="submit">Comprobar respuesta →</button>${s.mode==='assessment'?'':'<button class="btn ghost" type="button" data-action="show-hint">Necesito una pista</button>'}</div>
     ${s.hintVisible?`<div class="notebox amber" style="margin-top:15px"><strong>Pista:</strong> ${safe(question.hint)}</div>`:''}</form>`}</div>
     <p class="footnote">Cada respuesta corregida se guarda como evidencia local. Podés abandonar sin perder las preguntas que ya respondiste.</p></div>`;
 }
@@ -119,10 +140,12 @@ function resultView(){
   const s=app.activity, ok=s.results.filter(r=>r.correct).length;
   const recommended=recommendTopic(app.attempts,app.profile.track);
   const isDiag=s.mode==='diagnostic';
-  return `<div class="card pad result-card"><div class="result-emoji">${ok>=Math.ceil(s.results.length*0.8)?'🌟':'🌱'}</div><div class="eyebrow">${isDiag?'Diagnóstico finalizado':'Sesión completada'}</div><h1>Respondiste ${ok} de ${s.results.length} preguntas correctamente.</h1>
-  <p class="lead" style="margin:16px auto">${isDiag?'Ya tenemos un primer mapa orientativo. No es una calificación escolar ni prueba dominio.':'Cada intento es parte del aprendizaje. Tus avances se registraron y se compartirán entre Apoyo y Academia.'}</p>
-  <div class="notebox" style="text-align:left;margin-top:22px"><strong>Recomendación del Motor X:</strong> seguir con ${safe(recommended.title)}.</div>
-  <div class="buttons" style="justify-content:center">${button('Ir a la clase recomendada →','recommended')}${button('Ver mi progreso','go-progress','ghost')}</div></div>`;
+  const isAssessment=s.mode==='assessment';
+  const passed=isAssessment && s.results.length===5 && ok>=4;
+  return `<div class="card pad result-card"><div class="result-emoji">${ok>=Math.ceil(s.results.length*0.8)?'🌟':'🌱'}</div><div class="eyebrow">${isDiag?'Diagnóstico finalizado':isAssessment?'Evaluación integradora completada':'Sesión completada'}</div><h1>Respondiste ${ok} de ${s.results.length} preguntas correctamente.</h1>
+  <p class="lead" style="margin:16px auto">${isDiag?'Ya tenemos un primer mapa orientativo. No es una calificación escolar ni prueba dominio.':isAssessment?(passed?'Aprobaste esta unidad como hito de aprendizaje interno. No es acreditación oficial.':'Todavía no alcanzaste el criterio interno (4/5). Repasá los temas y volvé a evaluar.'):'Cada intento es parte del aprendizaje. Tus avances se registraron y se compartirán entre Apoyo y Academia.'}</p>
+  ${isAssessment?`<div class="notebox" style="text-align:left;margin-top:22px"><strong>Devolución de la evaluación:</strong>${s.results.map((a,i)=>{const q=QUESTION_BY_ID[a.questionId];return `<p><b>${i+1}. ${a.correct?'Correcto':'Para repasar'}</b> · ${safe(TOPIC_BY_ID[a.topic].title)}: ${safe(q.explanation)}</p>`}).join('')}</div>`:`<div class="notebox" style="text-align:left;margin-top:22px"><strong>Recomendación del Motor X:</strong> seguir con ${safe(recommended.title)}.</div>`}
+  <div class="buttons" style="justify-content:center">${isAssessment?button('Volver a Mi Academia','navigate','ghost') .replace('data-action="navigate"','data-action="navigate" data-view="academy"'):button('Ir a la clase recomendada →','recommended')}${button('Ver mi progreso','go-progress','ghost')}</div></div>`;
 }
 function progress(){
   const total=app.attempts.filter(a=>a.mode==='practice').length;
@@ -147,13 +170,13 @@ function settings(){
   <div class="card pad"><h2>Borrar mis datos</h2><p class="lead">Elimina definitivamente el perfil y todas las respuestas de este dispositivo. Primero exportá una copia si querés conservarlos.</p><div class="buttons"><button class="btn warn" data-action="clear">Eliminar perfil y progreso</button></div></div></div>`;
 }
 function render(){
-  const screens={home,path,math,diagnostic,progress,settings,lesson,activity:activityView};
+  const screens={home,path,academy,math,diagnostic,progress,settings,lesson,activity:activityView};
   root.innerHTML = app.profile ? pageTemplate((screens[app.view]||home)()) : setup();
   const answer=document.getElementById('answer');
   if(answer) answer.focus({preventScroll:true});
 }
 function changeView(view){
-  if (view==='lesson') app.tutorReply=null;
+  if (view==='lesson') {app.tutorReply=null;app.tutorState=null;}
   app.view=view;app.activity=null; render(); window.scrollTo({top:0,behavior:'auto'});
 }
 
@@ -170,6 +193,12 @@ root.addEventListener('click',async event=>{
     if(action==='recommended'){app.topicId=recommendTopic(app.attempts,app.profile.track).id;changeView('lesson');return;}
     if(action==='lesson'){app.topicId=btn.dataset.topic;changeView('lesson');return;}
     if(action==='start-diagnostic'){app.activity={mode:'diagnostic',questions:diagnosticQuestions(),index:0,results:[],feedback:null};app.view='activity';render();return;}
+    if(action==='start-assessment'){
+      const unit=findUnit(btn.dataset.unit);
+      if(!unit || !unitStatus(unit,app.attempts).ready){flash('Primero reuní evidencias de dominio en todos los temas de esta unidad.',true);return;}
+      const sessionId=createSessionId();
+      app.activity={mode:'assessment',unitId:unit.id,sessionId,questions:unitAssessmentQuestions(unit),index:0,results:[],feedback:null};app.view='activity';render();return;
+    }
     if(action==='start-practice'){app.topicId=btn.dataset.topic;app.activity={mode:'practice',topicId:app.topicId,question:selectNextQuestion(app.topicId,app.attempts),count:0,results:[],feedback:null};app.view='activity';render();return;}
     if(action==='show-hint'){app.activity.hintVisible=true;render();return;}
     if(action==='next-question'){
@@ -178,8 +207,8 @@ root.addEventListener('click',async event=>{
       else {if(s.count>=5)s.complete=true;else s.question=selectNextQuestion(s.topicId,app.attempts);}
       s.feedback=null;s.hintVisible=false;render();return;
     }
-    if(action==='quit-activity'){changeView(app.activity?.mode==='practice'?'lesson':'diagnostic');return;}
-    if(action==='tutor-prompt'){app.tutorReply=tutorReply(btn.dataset.prompt,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track);render();return;}
+    if(action==='quit-activity'){changeView(app.activity?.mode==='practice'?'lesson':app.activity?.mode==='assessment'?'academy':'diagnostic');return;}
+    if(action==='tutor-prompt'){const turn=tutorTurn(btn.dataset.prompt,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track,app.tutorState);app.tutorReply=turn.reply;app.tutorState=turn.state;render();return;}
     if(action==='export'){
       const backup={format:'educacion-x-backup-v1',exportedAt:new Date().toISOString(),profile:app.profile,attempts:app.attempts};
       const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));
@@ -216,18 +245,20 @@ root.addEventListener('submit',async event=>{
     }
     if(form.id==='tutor-form'){
       const query=String(data.get('question')||'').trim();if(!query)return;
-      app.tutorReply=tutorReply(query,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track);render();return;
+      const turn=tutorTurn(query,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track,app.tutorState);app.tutorReply=turn.reply;app.tutorState=turn.state;render();return;
     }
     if(form.id==='answer-form'){
       const s=app.activity;if(!s || s.feedback)return;
-      const q=s.mode==='diagnostic'?s.questions[s.index]:s.question;
+      const q=s.mode==='diagnostic'||s.mode==='assessment'?s.questions[s.index]:s.question;
       const answer=String(data.get('answer')||'').trim();
       const checked=checkAnswer(q,answer);
       if(!checked.valid){flash(checked.message,true);return;}
-      const attempt=buildAttempt(q,answer,s.mode,app.profile.track);
+      const attempt=buildAttempt(q,answer,s.mode,app.profile.track,s.mode==='assessment'?s.sessionId:null);
       await saveAttempt(attempt); // Solo mostrar resultado después de persistir la evidencia.
       app.attempts.push(attempt);s.results.push(attempt);if(s.mode==='practice')s.count++;
-      s.feedback={correct:attempt.correct};render();return;
+      if(s.mode==='assessment'){s.index++;if(s.index>=s.questions.length)s.complete=true;}
+      else s.feedback={correct:attempt.correct};
+      render();return;
     }
   }catch(error){console.error(error);flash('No se pudo guardar: '+error.message,true);}
 });

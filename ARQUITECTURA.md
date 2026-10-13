@@ -61,3 +61,13 @@ No constituye una nota ni certificación; requiere revisión empírica educativa
 - No se cambia IndexedDB v1 ni el contrato de respaldo `educacion-x-backup-v1`; no se crean campos obligatorios nuevos.
 - Se invalida caché estática PWA `educacion-x-core-v2`.
 - Validación completa de SW y IndexedDB real en Android/localhost pendiente donde el navegador del entorno imponga bloqueo de red local.
+
+## v0.3 — Academia basada en evidencias
+
+- Currículo piloto: `core/academy.js` define un trayecto de 3 unidades y 7 temas; todos los materiales se pueden consultar independientemente del avance.
+- Reglas de progreso: se desbloquea una evaluación cuando cada tema de la unidad tiene al menos 5 ejercicios recientes, 4 correctos, 3 identificadores correctos distintos y nivel intermedio.
+- Evaluaciones: 5 ejercicios distintos, niveles variados; las sesiones se agrupan por `sessionId` aleatorio; menos de cinco respuestas no acreditan. Aprobación interna: 4/5 o más.
+- Persistencia: se reutiliza IndexedDB v1 `attempts`; cada evaluación agrega `mode=assessment` y `sessionId`. Exportaciones mantienen `educacion-x-backup-v1`; las copias antiguas se siguen admitiendo sin cambios.
+- Profesor X: `core/dialogue.js` añade una máquina de estados efímera para guiar paso a paso mediante contenido verificado del tema; no interpreta libremente todas las entradas.
+- Seguridad: se mantiene la validación del valor numérico sin `eval`; corrección determinista; sin telemetría ni servicios de IA externos.
+- Límite: estos logros no equivalen a notas, títulos ni promoción oficial de curso escolar.
