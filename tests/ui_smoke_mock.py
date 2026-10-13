@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 import re
 base=Path(__file__).resolve().parent.parent
 js=''
-for file in ['data/curriculum.js','core/pedagogy.js','core/storage.js','app.js']:
+for file in ['data/curriculum.js','core/pedagogy.js','core/tutor.js','core/storage.js','app.js']:
     part=(base/file).read_text()
     part=re.sub(r'^import .*?;\s*$', '',part, flags=re.M)
     part=re.sub(r'\bexport\s+(?=(const|function|async|class|let)\b)','',part)
@@ -45,7 +45,7 @@ with sync_playwright() as p:
     print('PASS: onboarding y dashboard')
     page.locator('[data-action="lesson"][data-topic="enteros"]').first.click()
     page.locator('[data-action="tutor-prompt"][data-prompt="ejemplo"]').click()
-    assert 'Veamos un ejemplo' in page.locator('.tutor-message').inner_text()
+    assert 'Trabajemos con un ejemplo' in page.locator('.tutor-message').inner_text()
     page.locator('[data-action="start-practice"]').click()
     questions=page.evaluate('QUESTIONS')
     for i in range(5):
@@ -66,13 +66,13 @@ with sync_playwright() as p:
     print('PASS: progreso compartido')
     page.locator('[data-action="navigate"][data-view="diagnostic"]').first.click()
     page.locator('[data-action="start-diagnostic"]').click()
-    for i in range(5):
+    for i in range(7):
         prompt=page.locator('.question').inner_text()
         question=next(q for q in questions if q['prompt']==prompt)
         page.locator('#answer').fill(str(question['answer']))
         page.locator('#answer-form button[type=submit]').click()
         page.locator('[data-action="next-question"]').click()
-    assert 'Respondiste 5 de 5' in page.locator('h1').first.inner_text()
+    assert 'Respondiste 7 de 7' in page.locator('h1').first.inner_text()
     print('PASS: diagnóstico')
     page.locator('[data-action="navigate"][data-view="settings"]').first.click()
     page.locator('[data-action="navigate"][data-view="home"]').first.click()
