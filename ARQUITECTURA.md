@@ -90,3 +90,16 @@ No constituye una nota ni certificación; requiere revisión empírica educativa
 - `replaceData` y `clearData` ahora abarcan cuatro object stores en transacciones atómicas. Una importación de respaldo antiguo inicializa plan y registros de tiempo vacíos, explícitamente.
 - `sw.js` usa caché `educacion-x-core-v5` e incorpora `core/planner.js`; sin dependencias CDN ni servicios de red obligatorios.
 - **Límite de validación:** la suite JS y smoke de Chromium con IndexedDB simulado son comprobaciones locales. Probar upgrade v1→v2 y recarga offline con un navegador seguro real sigue siendo obligatorio antes de liberar a instituciones.
+
+## v0.6 — Gestión escolar Local-First
+
+- `core/school.js`: catálogo orientativo de materias para los seis años, validador estricto de tareas (ID, título, notas, año, fecha local válida, prioridad y estado), resúmenes de vencimientos y calendario de 42 celdas de lunes a domingo. No calcula días civiles desde timestamps UTC, evitando desfases para las fechas de entrega.
+- `core/storage.js`: migración **IndexedDB v2 → v3** aditiva, nuevo object store `schoolTasks` (keyPath `id`); create/update/delete usan transacciones `readwrite`. `replaceData` y `clearData` incluyen los **cinco** almacenes para consistencia de importaciones y borrado.
+- Respaldo `educacion-x-backup-v1`: campo `schoolTasks` opcional; se valida y se rechazan IDs duplicados. Importación atómica entre `profile`, `attempts`, `planner`, `studyEntries` y `schoolTasks`.
+- Las tareas son datos personales: no se transfieren a ninguna API, Classroom o servidor. No tienen calificaciones oficiales ni alteran el dominio pedagógico.
+- Interfaz `app.js`: pantallas `school`, `schoolTasks` y `calendar`, botones de gestión con confirmación antes de borrar y escape HTML de contenido ingresado por el usuario.
+- PWA: caché `educacion-x-core-v6`, incluyendo el módulo `core/school.js`. Una actualización requiere descargar una vez los nuevos recursos antes de usarla offline.
+
+### Pruebas y límites
+
+Se desarrolló con pruebas fallidas antes de las implementaciones de catálogo/tareas y migración IndexedDB. `npm test` ejecuta 41 pruebas automáticas. Chromium con almacenamiento simulado verifica navegación, formularios, edición, acciones de estado, respaldo y layout; este resultado **no certifica** el funcionamiento de IndexedDB o Service Worker en una instalación real. La prueba real con `localhost` fue bloqueada por el entorno y debe ejecutarse en un navegador sin esas restricciones.
