@@ -11,3 +11,7 @@
 /* EDUCACIÓN X v0.4 — bandeja de repasos */
 .review-highlight{border-color:#cdd8fa;background:linear-gradient(120deg,#fff 0%,#f1f5ff 100%)}
 @media(max-width:760px){.review-highlight .buttons{align-items:stretch}.review-highlight .buttons .btn{width:100%}}
+
+/* EDUCACIÓN X v0.5 — Planificador académico local */
+.study-days{border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 18px}.study-days legend{font-weight:700;font-size:13px;padding:0 7px}.day-options{display:flex;gap:9px;flex-wrap:wrap}.day-options label{display:inline-flex;align-items:center;gap:6px;background:#f2f5ff;padding:8px 10px;border-radius:9px;font-size:12px;font-weight:600}.day-options input{accent-color:var(--blue)}.planner-legend{padding:18px 22px;border-bottom:1px solid var(--line);color:var(--sub);font-size:12px}.planner-day{padding:16px 22px}.planner-day+.planner-day{border-top:1px solid var(--line)}.planner-day h3{margin:0 0 12px}.planner-session{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:9px 0}.planner-session+.planner-session{border-top:1px dashed var(--line)}.planner-session p{color:var(--sub);font-size:12px;margin-top:4px}
+@media(max-width:760px){.mobile-nav{grid-template-columns:repeat(7,minmax(0,1fr))}.mobile-nav .nav-btn{font-size:8px}.mobile-nav .nav-icon{font-size:17px}.planner-session{align-items:flex-start;flex-wrap:wrap}.planner-session .btn{margin-left:0}.day-options label{flex:1 0 92px}.planner-day{padding:15px}}
