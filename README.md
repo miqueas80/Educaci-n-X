@@ -161,3 +161,25 @@ Esta versión agrega un **planificador académico local** dentro de Apoyo y Acad
 **Limitaciones:** no hay calendario remoto, recordatorios, conexión con Classroom/Todoist ni notificaciones push. El registro del tiempo es autodeclarado; no se cronometra ni se verifica. Las fechas son del calendario local del dispositivo y no existe sincronización entre dispositivos. La agenda actual cubre una semana de lunes a domingo y admite hasta cuatro sesiones por día seleccionado.
 
 **Verificación:** `npm test` ejecuta 33 pruebas JS, incluidas ocho del planificador. `python3 tests/ui_smoke_mock.py` ejecuta el flujo visual completo con almacenamiento simulado, que NO sustituye las pruebas reales de IndexedDB o SW. `python3 tests/browser_v05.py` intenta comprobar migración real, recarga de datos y PWA offline con un servidor local en el puerto 8765; requiere Chromium/Playwright y acceso a `localhost` permitido. Si el entorno bloquea ese acceso, esa comprobación queda **pendiente** y debe repetirse en Chrome Android o escritorio real.
+
+## v0.6.0 — Gestión Escolar personal
+
+Nueva sección **Mis materias** para 1.º a 6.º de secundaria, con un catálogo **orientativo** (no curricular homologado por provincia o modalidad). Matemática continúa siendo la única materia con contenido de enseñanza implementado. Las otras materias sirven por ahora para organizar trabajos y entregas.
+
+La sección **Mis tareas** permite crear, editar, completar, reabrir y eliminar tareas, con materia, año, fecha límite, prioridad y notas. **Calendario escolar** muestra el mes con tareas pendientes y el detalle del día elegido. El inicio muestra vencidas, entregas del día y las próximas. Los avisos son internos al abrir la aplicación; no enviamos mensajes, push, correos ni entregas a Google Classroom.
+
+### Migración y datos
+
+- IndexedDB `educacion-x-core` pasa de **v2 a v3**; crea aditivamente `schoolTasks` con claves por `id`, conservando `profile`, `attempts`, `planner` y `studyEntries`.
+- Los cambios de tareas se confirman al completarse la transacción IndexedDB. El estado visible se actualiza después de guardar.
+- El formato `educacion-x-backup-v1` añade un campo opcional `schoolTasks`. Las copias de v0.1–v0.5 sin ese campo siguen siendo aceptadas. En una importación se reemplazan todas las tablas de forma atómica **después** de validar el contenido.
+- **Exportá un respaldo antes de actualizar y antes de importar otro respaldo.** Los JSON descargados no están cifrados.
+- No hay cuentas, colaboración multiusuario ni sincronización. Un solo perfil por navegador; no está pensado para computadoras compartidas.
+- El catálogo de materias no implica que Educación X dicte oficialmente esos programas ni certifique cursos completos.
+
+### Verificación
+
+- `npm test`: **41 pruebas de Node** (motor académico, planificador, tareas, calendario, validación de copias, migración y PWA estática).
+- `python3 tests/browser_v06_mock.py`: recorrido de interfaz mediante Chromium con IndexedDB simulado, incluyendo crear/editar/completar/reabrir/borrar, calendario, exportación y vista móvil. **No demuestra persistencia real ni offline de PWA**.
+- `python3 tests/browser_v06.py` con servidor local en puerto 8765: verificación real prevista de migración IndexedDB v2→v3, recarga, Service Worker offline y móvil. En el entorno de desarrollo la navegación local es bloqueada por el administrador (`ERR_BLOCKED_BY_ADMINISTRATOR`); ejecutar esta prueba en un entorno que permita localhost y repetir en Android.
+- Service Worker `educacion-x-core-v6` incluye `core/school.js` y mantiene las funciones principales sin servicios externos. La actualización inicial necesita red.
