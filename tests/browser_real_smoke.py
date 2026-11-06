@@ -23,7 +23,7 @@ try:
         page.locator('#setup-form button[type=submit]').click()
         page.locator('.topbar').wait_for()
         page.wait_for_function("navigator.serviceWorker && navigator.serviceWorker.controller || false", timeout=15000)
-        page.wait_for_function("caches.has('educacion-x-core-v3')", timeout=10000)
+        page.wait_for_function("caches.has('educacion-x-core-v4')", timeout=10000)
         page.locator('[data-action="navigate"][data-view="academy"]').first.click()
         assert 'Unidad 1' in page.locator('.page').inner_text()
         assert page.locator('[data-action="start-assessment"][data-unit="numeros"]').is_disabled()
