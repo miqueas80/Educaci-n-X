@@ -1,5 +1,5 @@
 const DB_NAME = 'educacion-x-core';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 let connection;
 
 export function openDatabase() {
@@ -12,6 +12,7 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('profile')) db.createObjectStore('profile');
       if (!db.objectStoreNames.contains('planner')) db.createObjectStore('planner');
       if (!db.objectStoreNames.contains('studyEntries')) db.createObjectStore('studyEntries',{keyPath:'id'});
+      if (!db.objectStoreNames.contains('schoolTasks')) db.createObjectStore('schoolTasks',{keyPath:'id'});
       if (!db.objectStoreNames.contains('attempts')) {
         const store = db.createObjectStore('attempts', { keyPath: 'id' });
         store.createIndex('topic', 'topic');
@@ -49,10 +50,13 @@ export const getPlanner = () => transact('planner','readonly',(store,set)=>{stor
 export const savePlanner = plan => transact('planner','readwrite',store=>store.put(plan,'active'));
 export const getStudyEntries = () => transact('studyEntries','readonly',(store,set)=>{store.getAll().onsuccess=e=>set(e.target.result);});
 export const saveStudyEntry = entry => transact('studyEntries','readwrite',store=>store.add(entry));
-export async function replaceData(profile, attempts, planner=null, studyEntries=[]) {
+export const getSchoolTasks = () => transact('schoolTasks','readonly',(store,set)=>{store.getAll().onsuccess=e=>set(e.target.result);});
+export const saveSchoolTask = task => transact('schoolTasks','readwrite',store=>store.put(task));
+export const deleteSchoolTask = id => transact('schoolTasks','readwrite',store=>store.delete(id));
+export async function replaceData(profile, attempts, planner=null, studyEntries=[], schoolTasks=[]) {
   const db = await openDatabase();
   return new Promise((resolve,reject) => {
-    const tx = db.transaction(['profile','attempts','planner','studyEntries'],'readwrite');
+    const tx = db.transaction(['profile','attempts','planner','studyEntries','schoolTasks'],'readwrite');
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error || new Error('No se pudo importar la copia.'));
     tx.onabort = () => reject(tx.error || new Error('Importación cancelada.'));
@@ -63,17 +67,20 @@ export async function replaceData(profile, attempts, planner=null, studyEntries=
     if (planner) tx.objectStore('planner').put(planner,'active');
     const entriesStore=tx.objectStore('studyEntries');entriesStore.clear();
     for (const entry of studyEntries) entriesStore.add(entry);
+    const tasksStore=tx.objectStore('schoolTasks'); tasksStore.clear();
+    for (const task of schoolTasks) tasksStore.add(task);
   });
 }
 export async function clearData() {
   const db = await openDatabase();
   return new Promise((resolve,reject) => {
-    const tx = db.transaction(['profile','attempts','planner','studyEntries'],'readwrite');
+    const tx = db.transaction(['profile','attempts','planner','studyEntries','schoolTasks'],'readwrite');
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error || new Error('No se pudo borrar.'));
     tx.objectStore('profile').clear();
     tx.objectStore('attempts').clear();
     tx.objectStore('planner').clear();
     tx.objectStore('studyEntries').clear();
+    tx.objectStore('schoolTasks').clear();
   });
 }
