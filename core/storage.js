@@ -1,5 +1,5 @@
 const DB_NAME = 'educacion-x-core';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let connection;
 
 export function openDatabase() {
@@ -10,6 +10,8 @@ export function openDatabase() {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains('profile')) db.createObjectStore('profile');
+      if (!db.objectStoreNames.contains('planner')) db.createObjectStore('planner');
+      if (!db.objectStoreNames.contains('studyEntries')) db.createObjectStore('studyEntries',{keyPath:'id'});
       if (!db.objectStoreNames.contains('attempts')) {
         const store = db.createObjectStore('attempts', { keyPath: 'id' });
         store.createIndex('topic', 'topic');
@@ -43,25 +45,35 @@ export const getProfile = () => transact('profile','readonly',(store,set) => { s
 export const saveProfile = profile => transact('profile','readwrite',(store) => store.put(profile,'active'));
 export const getAttempts = () => transact('attempts','readonly',(store,set) => { store.getAll().onsuccess = e => set(e.target.result); });
 export const saveAttempt = attempt => transact('attempts','readwrite',(store) => store.add(attempt));
-export async function replaceData(profile, attempts) {
+export const getPlanner = () => transact('planner','readonly',(store,set)=>{store.get('active').onsuccess=e=>set(e.target.result||null);});
+export const savePlanner = plan => transact('planner','readwrite',store=>store.put(plan,'active'));
+export const getStudyEntries = () => transact('studyEntries','readonly',(store,set)=>{store.getAll().onsuccess=e=>set(e.target.result);});
+export const saveStudyEntry = entry => transact('studyEntries','readwrite',store=>store.add(entry));
+export async function replaceData(profile, attempts, planner=null, studyEntries=[]) {
   const db = await openDatabase();
   return new Promise((resolve,reject) => {
-    const tx = db.transaction(['profile','attempts'],'readwrite');
+    const tx = db.transaction(['profile','attempts','planner','studyEntries'],'readwrite');
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error || new Error('No se pudo importar la copia.'));
     tx.onabort = () => reject(tx.error || new Error('Importación cancelada.'));
     tx.objectStore('profile').put(profile,'active');
     const store = tx.objectStore('attempts'); store.clear();
     for (const a of attempts) store.add(a);
+    tx.objectStore('planner').clear();
+    if (planner) tx.objectStore('planner').put(planner,'active');
+    const entriesStore=tx.objectStore('studyEntries');entriesStore.clear();
+    for (const entry of studyEntries) entriesStore.add(entry);
   });
 }
 export async function clearData() {
   const db = await openDatabase();
   return new Promise((resolve,reject) => {
-    const tx = db.transaction(['profile','attempts'],'readwrite');
+    const tx = db.transaction(['profile','attempts','planner','studyEntries'],'readwrite');
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error || new Error('No se pudo borrar.'));
     tx.objectStore('profile').clear();
     tx.objectStore('attempts').clear();
+    tx.objectStore('planner').clear();
+    tx.objectStore('studyEntries').clear();
   });
 }
