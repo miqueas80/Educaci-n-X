@@ -80,3 +80,13 @@ No constituye una nota ni certificación; requiere revisión empírica educativa
 - Una nueva modalidad `review` se incorpora al contrato `educacion-x-backup-v1` existente. No cambia la versión de IndexedDB, los IDs históricos ni las reglas de evaluación.
 - `sw.js` precachea `core/review.js` con una nueva versión para renovación; todo se ejecuta offline sin transmisión a terceros.
 - Limitaciones: los resultados no son calificaciones, las fechas dependen del reloj local, no hay notificaciones push, y la evaluación pedagógica de los intervalos está pendiente.
+
+## Extensión v0.5 — Planificador académico seguro
+
+- Se añaden las tablas `planner` (clave `active`) y `studyEntries` (`keyPath: id`) en **IndexedDB v2**, preservando `profile` y `attempts` de v1. Se realiza una migración aditiva; no se elimina ninguna evidencia educativa.
+- `core/planner.js` maneja configuración, fechas locales ISO `YYYY-MM-DD`, recomendaciones reproducibles, y validación de los registros de tiempo. La distribución semanal tiene máximo cuatro sesiones por día y advierte metas que no entran en la disponibilidad seleccionada.
+- **Nunca se infiere dominio del tiempo estudiado**: el dominio sigue perteneciendo a `core/pedagogy.js` y sus registros de práctica. No se generan notas ni certificados con estas sesiones.
+- Se mantiene el formato `educacion-x-backup-v1` por compatibilidad, con campos opcionales `planner`, `studyEntries`. El validador rechaza entradas duplicadas, fechas imposibles, temas desconocidos y duraciones fuera de rango antes de cualquier transacción de importación.
+- `replaceData` y `clearData` ahora abarcan cuatro object stores en transacciones atómicas. Una importación de respaldo antiguo inicializa plan y registros de tiempo vacíos, explícitamente.
+- `sw.js` usa caché `educacion-x-core-v5` e incorpora `core/planner.js`; sin dependencias CDN ni servicios de red obligatorios.
+- **Límite de validación:** la suite JS y smoke de Chromium con IndexedDB simulado son comprobaciones locales. Probar upgrade v1→v2 y recarga offline con un navegador seguro real sigue siendo obligatorio antes de liberar a instituciones.
