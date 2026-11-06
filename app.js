@@ -1,12 +1,13 @@
 import { TOPICS, TOPIC_BY_ID, QUESTION_BY_ID } from './data/curriculum.js';
 import { checkAnswer, buildAttempt, topicStats, diagnosticStatus, recommendTopic, selectNextQuestion, diagnosticQuestions, validateBackup, createSessionId } from './core/pedagogy.js';
-import {openDatabase, getProfile, saveProfile, getAttempts, saveAttempt, replaceData, clearData} from './core/storage.js';
+import {openDatabase, getProfile, saveProfile, getAttempts, saveAttempt, getPlanner, savePlanner, getStudyEntries, saveStudyEntry, replaceData, clearData} from './core/storage.js';
 import { learningAdvice } from './core/tutor.js';
 import { tutorTurn } from './core/dialogue.js';
 import { ACADEMY, academyStatus, unitStatus, findUnit, unitAssessmentQuestions } from './core/academy.js';
 import { reviewPlan, reviewDeck } from './core/review.js';
+import { defaultStudyPreferences, normalizeStudyPreferences, buildWeeklyPlan, validateStudyEntry, validateStudyBackup, localDayKey } from './core/planner.js';
 
-const app = { profile:null, attempts:[], view:'home', topicId:'enteros', activity:null, tutorReply:null, tutorQuery:'', tutorState:null, flash:null };
+const app = { profile:null, attempts:[], view:'home', topicId:'enteros', activity:null, tutorReply:null, tutorQuery:'', tutorState:null, flash:null, planner:defaultStudyPreferences(), studyEntries:[], plannerDraft:null };
 const root=document.getElementById('app');
 const safe = value => String(value ?? '').replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const trackTitle = t=> t==='academy' ? 'Academia independiente' : 'Apoyo escolar';
@@ -27,11 +28,11 @@ function navItem(view, icon, title) {
 function sidebar() {
   return `<aside class="sidebar"><div class="brand"><div class="logo"><img src="./assets/icon.svg" alt=""></div><div><strong>EDUCACIÓN X</strong><small>Mi escuela digital</small></div></div>
   <div class="navtitle">Mi espacio</div><nav class="nav" aria-label="Navegación principal">
-    ${navItem('home','⌂','Inicio')}${navItem('path','▦','Mis recorridos')}${navItem('academy','🎓','Mi academia')}${navItem('reviews','↻','Mis repasos')}${navItem('math','∑','Matemática')}${navItem('diagnostic','◉','Diagnóstico')}${navItem('progress','◫','Mi progreso')}
+    ${navItem('home','⌂','Inicio')}${navItem('path','▦','Mis recorridos')}${navItem('academy','🎓','Mi academia')}${navItem('reviews','↻','Mis repasos')}${navItem('planner','▣','Mi plan semanal')}${navItem('math','∑','Matemática')}${navItem('diagnostic','◉','Diagnóstico')}${navItem('progress','◫','Mi progreso')}
   </nav><div class="navtitle" style="margin-top:23px">Mi cuenta</div><nav class="nav">${navItem('settings','⚙','Datos y privacidad')}</nav><div class="sidebar-spacer"></div>
   <div class="sidecard"><b><span class="side-dot"></span>Motor X Local</b><p>Sin cuentas externas ni envío de respuestas. El progreso se guarda en este dispositivo.</p></div></aside>`;
 }
-function mobileNav() { return `<nav class="mobile-nav" aria-label="Navegación móvil">${navItem('home','⌂','Inicio')}${navItem('reviews','↻','Repasos')}${navItem('academy','🎓','Academia')}${navItem('math','∑','Mate')}${navItem('progress','◫','Progreso')}${navItem('settings','⚙','Datos')}</nav>`; }
+function mobileNav() { return `<nav class="mobile-nav" aria-label="Navegación móvil">${navItem('home','⌂','Inicio')}${navItem('reviews','↻','Repasos')}${navItem('planner','▣','Plan')}${navItem('academy','🎓','Academia')}${navItem('math','∑','Mate')}${navItem('progress','◫','Progreso')}${navItem('settings','⚙','Datos')}</nav>`; }
 function setup() {
   return `<div class="setup-bg"><div class="card setup"><div class="logo"><img src="./assets/icon.svg" alt=""></div><div class="eyebrow">Bienvenido a tu segunda escuela</div>
   <h1>Tu aprendizaje empieza acá.</h1><p>Creá un perfil local. No requiere cuenta, Internet ni datos personales reales.</p>
@@ -42,7 +43,7 @@ function setup() {
   <p class="footnote">Sin registro remoto. Podés exportar tu progreso desde Datos y privacidad. Esto no otorga títulos oficiales.</p></div></div>`;
 }
 function pageTemplate(inner) {
-  const title = {home:'Mi escuela digital',path:'Mis recorridos',academy:'Mi academia',reviews:'Mis repasos',math:'Matemática',diagnostic:'Diagnóstico inicial',progress:'Mi progreso',settings:'Privacidad y datos',lesson:'Aprender Matemática',activity:'Práctica guiada'}[app.view] ?? 'EDUCACIÓN X';
+  const title = {home:'Mi escuela digital',path:'Mis recorridos',academy:'Mi academia',reviews:'Mis repasos',planner:'Mi plan semanal',math:'Matemática',diagnostic:'Diagnóstico inicial',progress:'Mi progreso',settings:'Privacidad y datos',lesson:'Aprender Matemática',activity:'Práctica guiada'}[app.view] ?? 'EDUCACIÓN X';
   return `<div class="shell">${sidebar()}<main class="main"><header class="topbar"><h2>${title}</h2><div class="topbar-right"><span class="status ${navigator.onLine?'':'off'}" id="connection">● ${navigator.onLine?'Con red':'Sin red'}</span><span class="small subtle" title="Perfil local">${safe(app.profile.name)}</span><div class="avatar" aria-hidden="true">${safe((app.profile.name||'E').charAt(0).toUpperCase())}</div></div></header><div class="page">${inner}</div></main>${mobileNav()}</div>`;
 }
 function selectTrack() {
@@ -60,9 +61,11 @@ function home(){
   const recommended=recommendTopic(app.attempts,app.profile.track);
   const isAcademy=app.profile.track==='academy';
   const due=reviewPlan(app.attempts).due.length;
+  const weekly=buildWeeklyPlan(app.attempts,app.studyEntries,app.planner);
   return `<div class="stack"><div class="page-head"><div><div class="eyebrow">Un nuevo modo de aprender</div><h1>¡Hola, ${safe(app.profile.name)}! 👋</h1><p class="lead">Tu aprendizaje tiene un lugar propio. Elegí cómo avanzar hoy.</p></div>${selectTrack()}</div>
   <section class="hero"><div><div class="eyebrow">${isAcademy?'Tu segundo recorrido académico':'Tu compañero de escuela'}</div><h1>${isAcademy?'Una escuela que sigue tu ritmo.':'Lo que cuesta hoy, se aprende paso a paso.'}</h1><p>${isAcademy?'Recorré un programa progresivo y registrá tus competencias sin depender de tu escuela presencial.':'Reforzá lo que ves en clase, practicá sin presión y preparate para tu próxima evaluación.'}</p><div class="buttons">${button('Continuar: '+safe(recommended.title)+' →','recommended','white')}${button('Hacer diagnóstico','start-diagnostic','ghost')}</div></div></section>
   <section class="grid stats" aria-label="Resumen de progreso"><div class="card stat"><div class="stat-ico">◉</div><b>${sum}/${TOPICS.length}</b><span>Temas dominados</span></div><div class="card stat"><div class="stat-ico">✎</div><b>${practice}</b><span>Ejercicios realizados</span></div><div class="card stat"><div class="stat-ico">⌁</div><b>100%</b><span>Actividades locales</span></div></section>
+  <div class="notebox"><strong>Tu semana:</strong> ${weekly.completedMinutes} de ${weekly.goalMinutes} minutos registrados · ${weekly.dueCount} repasos prioritarios. <button class="muted-link" data-action="navigate" data-view="planner">Abrir mi plan semanal →</button></div>
   <div class="section-title"><h2>Mis temas de Matemática</h2><button class="muted-link" data-action="navigate" data-view="math">Ver todos →</button></div><section class="grid">${TOPICS.slice(0,3).map(topicCard).join('')}</section>
   ${due?`<div class="notebox amber" role="note"><strong>↻ Tenés ${due} ${due===1?'tema':'temas'} para repasar.</strong> Una sesión breve ayuda a comprobar cuánto recordás. <button class="btn small" data-action="navigate" data-view="reviews" style="margin-left:10px">Ir a mis repasos →</button></div>`:`<div class="notebox" role="note"><strong>↻ Repasos al día.</strong> <button class="muted-link" data-action="navigate" data-view="reviews">Ver próximas sesiones →</button></div>`}
   <div class="notebox"><strong>Una sola trayectoria de aprendizaje.</strong> Apoyo y Academia comparten las evidencias de dominio. Cambiar de recorrido no elimina tus avances.</div></div>`;
@@ -129,6 +132,24 @@ function reviews(){
   <div class="notebox amber" role="note" style="margin-top:24px"><strong>Importante:</strong> los intervalos de 1, 3, 7, 14 y 30 días son recomendaciones iniciales, no una medición científica de memoria ni una calificación. Un repaso no concede automáticamente dominio.</div>`;
 }
 
+
+function planner(){
+  const plan=buildWeeklyPlan(app.attempts,app.studyEntries,app.planner);
+  const weekdayNames=['','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  const grouped=new Map();
+  for(const session of plan.schedule){if(!grouped.has(session.date))grouped.set(session.date,[]);grouped.get(session.date).push(session);}
+  const draft=app.plannerDraft || {date:localDayKey(new Date()),topicId:plan.suggestedTopic,minutes:app.planner.sessionMinutes};
+  const recent=app.studyEntries.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  return `<div class="stack"><div class="page-head"><div><div class="eyebrow">Método X · Organización sin presión</div><h1>Mi semana de estudio</h1><p class="lead">Plan sugerido para ${safe(plan.weekStart)} al ${safe(plan.weekEnd)}. Las sesiones son propuestas, no asistencia obligatoria: solo se cuentan los minutos que vos registrás.</p></div></div>
+  <div class="grid stats"><div class="card stat"><span>Meta semanal</span><b>${plan.goalMinutes} min</b></div><div class="card stat"><span>Tiempo registrado</span><b>${plan.completedMinutes} min</b></div><div class="card stat"><span>Avance declarado</span><b>${plan.progressPercent}%</b></div></div>
+  <div class="card pad"><h2>Tu objetivo semanal</h2><div class="progress" role="progressbar" aria-label="Avance de minutos de estudio registrados" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${plan.progressPercent}" style="margin-top:15px"><div class="bar" style="width:${plan.progressPercent}%"></div></div><p class="footnote">${plan.registeredSessions} sesiones registradas esta semana. Estudiar más tiempo no garantiza dominar un tema; el dominio depende de ejercicios verificados.</p>${plan.unplannedMinutes?`<div class="notebox amber" style="margin-top:15px">Con los días elegidos y un límite de cuatro sesiones por día, quedan ${plan.unplannedMinutes} minutos de tu meta sin agendar. Podés sumar días o aumentar la duración de las sesiones.</div>`:''}</div>
+  <div class="profile-grid"><section class="card pad"><h2>Configurá tu rutina</h2><form id="planner-form" style="margin-top:18px"><div class="form-field"><label for="weekly-goal">Meta semanal (30 a 420 minutos)</label><input class="input" id="weekly-goal" name="weeklyGoalMinutes" type="number" min="30" max="420" step="5" required value="${app.planner.weeklyGoalMinutes}"></div><div class="form-field"><label for="session-time">Duración sugerida por sesión (15 a 60 minutos)</label><input class="input" id="session-time" name="sessionMinutes" type="number" min="15" max="60" step="5" required value="${app.planner.sessionMinutes}"></div><fieldset class="study-days"><legend>¿Qué días querés estudiar?</legend><div class="day-options">${[1,2,3,4,5,6,7].map(n=>`<label><input type="checkbox" name="days" value="${n}" ${app.planner.days.includes(n)?'checked':''}><span>${weekdayNames[n]}</span></label>`).join('')}</div></fieldset><button class="btn" type="submit">Guardar mi rutina</button></form></section>
+  <section class="card pad"><h2>Registrar tiempo real</h2><p class="lead">Cuando termines de estudiar, anotá los minutos. Este registro es manual y no modifica tus calificaciones.</p><form id="study-form" style="margin-top:17px"><div class="form-field"><label for="study-date">Día que estudiaste</label><input class="input" id="study-date" type="date" name="date" required max="${localDayKey(new Date())}" value="${safe(draft.date)}"></div><div class="form-field"><label for="study-topic">Tema</label><select id="study-topic" name="topicId">${TOPICS.map(t=>`<option value="${t.id}" ${t.id===draft.topicId?'selected':''}>${safe(t.title)}</option>`).join('')}</select></div><div class="form-field"><label for="study-minutes">Minutos estudiados realmente (1 a 180)</label><input id="study-minutes" class="input" type="number" name="minutes" min="1" max="180" value="${draft.minutes}" required></div><button class="btn" type="submit">Guardar sesión estudiada</button></form></section></div>
+  <div class="section-title"><h2>Agenda sugerida</h2></div><div class="card"><div class="planner-legend">Los temas se adaptan a tu progreso. Si modificás ejercicios o preferencias, las sugerencias pueden cambiar; tu registro de minutos permanece.</div>${[...grouped.entries()].map(([day,sessions])=>`<section class="planner-day"><h3>${weekdayNames[sessions[0].weekday]} · ${safe(day)} ${day===plan.today?'· Hoy':''}</h3>${sessions.map(item=>`<div class="planner-session"><div><b>${safe(item.title)}</b><p>${item.kind==='review'?'Repaso prioritario':'Práctica orientativa'} · ${item.minutes} min</p></div><button class="btn small ghost" data-action="prefill-study" data-topic="${item.topicId}" data-minutes="${item.minutes}">Registrar estudio</button></div>`).join('')}</section>`).join('')}</div>
+  <div class="section-title"><h2>Mis últimas sesiones registradas</h2></div><div class="card">${recent.length?recent.map(entry=>`<div class="module"><div class="module-left"><span class="module-num">✓</span><div><b>${safe(TOPIC_BY_ID[entry.topicId].title)}</b><p>${safe(entry.date)} · Registrado por el estudiante</p></div></div><span class="pill good">${entry.minutes} min</span></div>`).join(''):'<div class="pad empty">Todavía no registraste sesiones de estudio.</div>'}</div>
+  <p class="footnote">Este plan no crea tareas en Google Classroom ni Todoist, no envía notificaciones ni certifica la asistencia. No se comparte información con terceros.</p></div>`;
+}
+
 function diagnostic(){
   const done=app.attempts.filter(a=>a.mode==='diagnostic');
   return `<div class="page-head"><div><div class="eyebrow">Punto de partida · Matemática</div><h1>Descubrí qué reforzar</h1><p class="lead">Respondé ${TOPICS.length} preguntas exploratorias, una por tema. No recibís una nota ni se certifica dominio.</p></div></div>
@@ -183,14 +204,14 @@ function settings(){
   <div class="profile-grid"><div class="card pad"><h2>Mi perfil local</h2><form id="profile-form" style="margin-top:20px"><div class="form-field"><label for="edit-name">Nombre visible</label><input id="edit-name" class="input" name="name" maxlength="45" value="${safe(app.profile.name)}" required></div>
   <div class="form-field"><label for="edit-grade">Año de secundaria</label><select id="edit-grade" name="grade">${[1,2,3,4,5,6].map(n=>`<option ${app.profile.grade===n?'selected':''} value="${n}">${n}.º año</option>`).join('')}</select></div>
   <button type="submit" class="btn">Guardar perfil</button></form></div>
-  <div class="card pad"><h2>Respaldo y protección</h2><p class="lead">Guardamos perfil y respuestas en IndexedDB. El navegador puede borrar almacenamiento en algunas circunstancias; conservá copias regularmente.</p>
+  <div class="card pad"><h2>Respaldo y protección</h2><p class="lead">Guardamos perfil, respuestas, rutina y sesiones registradas en IndexedDB. El navegador puede borrar almacenamiento en algunas circunstancias; conservá copias regularmente.</p>
   <div class="buttons"><button class="btn" data-action="export">Descargar copia JSON</button><button class="btn ghost" data-action="pick-import">Importar copia</button><input class="hidden" id="backup-file" type="file" accept="application/json,.json"></div><div class="buttons"><button class="btn small ghost" data-action="persist">Solicitar almacenamiento persistente</button></div>
-  <p class="footnote" id="storage-info">La copia JSON contiene respuestas y nombre local, sin cifrado. Guardala en un lugar privado.</p></div>
+  <p class="footnote" id="storage-info">La copia JSON contiene nombre local, respuestas y sesiones estudiadas, sin cifrado. Guardala en un lugar privado.</p></div>
   <div class="card pad"><h2>Privacidad por diseño</h2><p class="lead">No incluimos analíticas, anuncios, cuentas externas, telemetría ni servicios de IA remotos. Las consultas del Profesor X se procesan localmente y no se guardan.</p><p class="footnote">Esta versión admite un solo perfil por navegador. No es apropiada para computadoras compartidas sin separación de usuarios.</p></div>
   <div class="card pad"><h2>Borrar mis datos</h2><p class="lead">Elimina definitivamente el perfil y todas las respuestas de este dispositivo. Primero exportá una copia si querés conservarlos.</p><div class="buttons"><button class="btn warn" data-action="clear">Eliminar perfil y progreso</button></div></div></div>`;
 }
 function render(){
-  const screens={home,path,academy,reviews,math,diagnostic,progress,settings,lesson,activity:activityView};
+  const screens={home,path,academy,reviews,planner,math,diagnostic,progress,settings,lesson,activity:activityView};
   root.innerHTML = app.profile ? pageTemplate((screens[app.view]||home)()) : setup();
   const answer=document.getElementById('answer');
   if(answer) answer.focus({preventScroll:true});
@@ -212,6 +233,7 @@ root.addEventListener('click',async event=>{
     }
     if(action==='recommended'){app.topicId=recommendTopic(app.attempts,app.profile.track).id;changeView('lesson');return;}
     if(action==='lesson'){app.topicId=btn.dataset.topic;changeView('lesson');return;}
+    if(action==='prefill-study'){app.plannerDraft={date:localDayKey(new Date()),topicId:btn.dataset.topic,minutes:Number(btn.dataset.minutes)};render();document.getElementById('study-date')?.focus();return;}
     if(action==='start-review'){
       const questions=reviewDeck(app.attempts);
       if(!questions.length){flash('No hay repasos pendientes por ahora.');return;}
@@ -235,7 +257,7 @@ root.addEventListener('click',async event=>{
     if(action==='quit-activity'){changeView(app.activity?.mode==='practice'?'lesson':app.activity?.mode==='assessment'?'academy':app.activity?.mode==='review'?'reviews':'diagnostic');return;}
     if(action==='tutor-prompt'){const turn=tutorTurn(btn.dataset.prompt,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track,app.tutorState);app.tutorReply=turn.reply;app.tutorState=turn.state;render();return;}
     if(action==='export'){
-      const backup={format:'educacion-x-backup-v1',exportedAt:new Date().toISOString(),profile:app.profile,attempts:app.attempts};
+      const backup={format:'educacion-x-backup-v1',exportedAt:new Date().toISOString(),profile:app.profile,attempts:app.attempts,planner:app.planner,studyEntries:app.studyEntries};
       const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));
       const link=document.createElement('a');link.href=url;link.download=`educacion-x-respaldo-${new Date().toISOString().slice(0,10)}.json`;
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
@@ -250,13 +272,13 @@ root.addEventListener('click',async event=>{
     }
     if(action==='clear'){
       if(!confirm('¿Eliminar definitivamente el perfil y todo tu progreso local? Esta acción no se puede deshacer.'))return;
-      await clearData();app.profile=null;app.attempts=[];app.view='home';render();flash('Se borraron los datos de EDUCACIÓN X en este navegador.');return;
+      await clearData();app.profile=null;app.attempts=[];app.studyEntries=[];app.planner=defaultStudyPreferences();app.view='home';render();flash('Se borraron los datos de EDUCACIÓN X en este navegador.');return;
     }
   } catch(error){console.error(error);flash('No se pudo completar la acción: '+error.message,true);}
 });
 
 root.addEventListener('submit',async event=>{
-  const form=event.target;if(!['setup-form','answer-form','tutor-form','profile-form'].includes(form.id))return;
+  const form=event.target;if(!['setup-form','answer-form','tutor-form','profile-form','planner-form','study-form'].includes(form.id))return;
   event.preventDefault();
   try {
     const data=new FormData(form);
@@ -267,6 +289,17 @@ root.addEventListener('submit',async event=>{
     if(form.id==='profile-form'){
       const profile={...app.profile,name:String(data.get('name')||'Estudiante').trim().slice(0,45)||'Estudiante',grade:Number(data.get('grade'))};
       await saveProfile(profile);app.profile=profile;render();flash('Perfil guardado.');return;
+    }
+    if(form.id==='planner-form'){
+      const days=data.getAll('days').map(Number);
+      const next=normalizeStudyPreferences({weeklyGoalMinutes:Number(data.get('weeklyGoalMinutes')),sessionMinutes:Number(data.get('sessionMinutes')),days});
+      await savePlanner(next);app.planner=next;app.plannerDraft=null;render();flash('Rutina semanal guardada en este dispositivo.');return;
+    }
+    if(form.id==='study-form'){
+      const date=String(data.get('date')||'');
+      if(date>localDayKey(new Date()))throw new Error('No se pueden registrar sesiones futuras.');
+      const entry=validateStudyEntry({id:createSessionId(),date,topicId:String(data.get('topicId')),minutes:Number(data.get('minutes'))});
+      await saveStudyEntry(entry);app.studyEntries.push(entry);app.plannerDraft=null;render();flash('Sesión registrada. No altera el dominio de la materia.');return;
     }
     if(form.id==='tutor-form'){
       const query=String(data.get('question')||'').trim();if(!query)return;
@@ -292,10 +325,10 @@ root.addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   if(file.size>8*1024*1024){flash('La copia es demasiado grande para esta importación (límite 8 MB).',true);return;}
   try{
-    const data=validateBackup(JSON.parse(await file.text()));
+    const data=validateStudyBackup(JSON.parse(await file.text()));
     if(!confirm(`¿Reemplazar el perfil actual y sus ${app.attempts.length} registros por los ${data.attempts.length} de la copia? Esta acción no se puede deshacer.`))return;
-    await replaceData(data.profile,data.attempts);
-    app.profile=data.profile;app.attempts=data.attempts;app.view='home';render();flash('Copia importada correctamente.');
+    await replaceData(data.profile,data.attempts,data.planner,data.studyEntries);
+    app.profile=data.profile;app.attempts=data.attempts;app.planner=data.planner;app.studyEntries=data.studyEntries;app.view='home';render();flash('Copia importada correctamente.');
   }catch(error){console.error(error);flash('No se pudo importar: '+error.message,true);}
   finally{event.target.value='';}
 });
@@ -305,7 +338,8 @@ window.addEventListener('offline',()=>{const x=document.getElementById('connecti
 async function start(){
   try {
     await openDatabase();
-    [app.profile,app.attempts]=await Promise.all([getProfile(),getAttempts()]);
+    [app.profile,app.attempts,app.planner,app.studyEntries]=await Promise.all([getProfile(),getAttempts(),getPlanner(),getStudyEntries()]);
+    if(!app.planner)app.planner=defaultStudyPreferences();
     render();
     if('serviceWorker' in navigator && window.isSecureContext) {
       navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('La instalación offline falló:',err));

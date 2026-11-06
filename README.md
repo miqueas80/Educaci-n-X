@@ -149,3 +149,15 @@ La IndexedDB no cambia de versión y mantiene el perfil y los intentos existente
 - Para probar la agenda rápidamente, practicá un tema y comprobá que aparece en «Mis repasos» con fecha posterior (o inmediata si hubo error); las fechas se calculan con el reloj del dispositivo.
 - El Service Worker incluye `core/review.js` en el precaché `educacion-x-core-v4`. La primera actualización necesita conexión; después se mantiene la arquitectura Local-First.
 - La prueba con navegador simulado **no demuestra** IndexedDB ni Service Worker offline reales. La ejecución automatizada en `127.0.0.1` fue bloqueada por la política del entorno; debe repetirse en un navegador normal.
+
+## v0.5.0 — Mi plan semanal (Local-First)
+
+Esta versión agrega un **planificador académico local** dentro de Apoyo y Academia. Permite fijar una meta de minutos semanales (30–420), seleccionar la duración de una sesión (15–60 minutos) y los días de estudio. Genera una agenda semanal orientativa con prioridad para repasos pendientes y temas que necesitan refuerzo. El estudiante registra manualmente los minutos realmente estudiados, sin afirmar que el plan equivale a asistencia, aprendizaje demostrado ni acreditación.
+
+**Mecanismo de recomendación:** reglas transparentes, no IA generativa. Las sesiones sugeridas se recalculan cuando cambian el historial o las preferencias. Los registros de tiempo son independientes de esa agenda sugerida y no alteran el criterio de dominio por ejercicios correctos.
+
+**Persistencia y migración:** IndexedDB continúa llamándose `educacion-x-core` y sube de esquema **v1 a v2**. Se conservan `profile` y `attempts`; se crean `planner` y `studyEntries` sin borrar las tablas anteriores. Se puede exportar e importar un respaldo `educacion-x-backup-v1` que ahora incluye opcionalmente `planner` y `studyEntries`. Los respaldos antiguos siguen siendo válidos; si se importa uno, sus datos de planificación se inicializan vacíos. La importación reemplaza todo en una única transacción, después de validar el contenido completo. **Exportá una copia de seguridad antes de actualizar y antes de importar archivos.**
+
+**Limitaciones:** no hay calendario remoto, recordatorios, conexión con Classroom/Todoist ni notificaciones push. El registro del tiempo es autodeclarado; no se cronometra ni se verifica. Las fechas son del calendario local del dispositivo y no existe sincronización entre dispositivos. La agenda actual cubre una semana de lunes a domingo y admite hasta cuatro sesiones por día seleccionado.
+
+**Verificación:** `npm test` ejecuta 33 pruebas JS, incluidas ocho del planificador. `python3 tests/ui_smoke_mock.py` ejecuta el flujo visual completo con almacenamiento simulado, que NO sustituye las pruebas reales de IndexedDB o SW. `python3 tests/browser_v05.py` intenta comprobar migración real, recarga de datos y PWA offline con un servidor local en el puerto 8765; requiere Chromium/Playwright y acceso a `localhost` permitido. Si el entorno bloquea ese acceso, esa comprobación queda **pendiente** y debe repetirse en Chrome Android o escritorio real.
