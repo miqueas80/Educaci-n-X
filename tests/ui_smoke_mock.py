@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 import re
 base=Path(__file__).resolve().parent.parent
 js=''
-for file in ['data/curriculum.js','core/pedagogy.js','core/tutor.js','core/academy.js','core/dialogue.js','core/review.js','core/storage.js','app.js']:
+for file in ['data/curriculum.js','core/pedagogy.js','core/tutor.js','core/academy.js','core/dialogue.js','core/review.js','core/planner.js','core/storage.js','app.js']:
     part=(base/file).read_text()
     part=re.sub(r'^import .*?;\s*$', '',part, flags=re.M)
     part=re.sub(r'\bexport\s+(?=(const|function|async|class|let)\b)','',part)
@@ -25,7 +25,7 @@ Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:{open(){
   }};
   const req={};setTimeout(()=>{req.result=db;req.onsuccess?.()},0);return req;
 }}});
-const records={profile:new Map(),attempts:new Map()};
+const records={profile:new Map(),attempts:new Map(),planner:new Map(),studyEntries:new Map()};
 '''
 html=(base/'index.html').read_text()
 html=re.sub(r'<link rel="stylesheet"[^>]*>', f'<style>{(base/"styles.css").read_text()}</style>',html)
@@ -41,7 +41,7 @@ with sync_playwright() as p:
     page.locator('#setup-form button[type=submit]').click()
     page.locator('.topbar').wait_for(timeout=5000)
     assert page.locator('h1').first.inner_text().startswith('¡Hola')
-    page.screenshot(path='/mnt/data/educacion-x-core-preview.png',full_page=True)
+    page.screenshot(path='/mnt/data/EDX-v0.5-desktop-home.png',full_page=True)
     print('PASS: onboarding y dashboard')
     page.locator('[data-action="lesson"][data-topic="enteros"]').first.click()
     page.locator('[data-action="tutor-prompt"][data-prompt="ejemplo"]').click()
@@ -139,8 +139,30 @@ with sync_playwright() as p:
     m.locator('#setup-form button[type=submit]').click()
     m.locator('.mobile-nav').wait_for(timeout=5000)
     assert m.locator('.mobile-nav').is_visible()
-    m.screenshot(path='/mnt/data/educacion-x-core-mobile.png',full_page=True)
+    m.screenshot(path='/mnt/data/EDX-v0.5-mobile.png',full_page=True)
     print('PASS: mobile UI')
+    # v0.5: personal planner, saved preferences and actual minutes, in simulated storage.
+    page.locator('[data-action="navigate"][data-view="planner"]').first.click()
+    assert page.locator('h1').first.inner_text()=='Mi semana de estudio'
+    page.screenshot(path='/mnt/data/EDX-v0.5-desktop.png',full_page=True)
+    page.locator('#weekly-goal').fill('180')
+    page.locator('#session-time').fill('30')
+    page.locator('#planner-form button[type=submit]').click()
+    page.wait_for_timeout(350)
+    assert page.evaluate('app.planner.weeklyGoalMinutes') == 180
+    page.locator('#study-minutes').fill('30')
+    page.locator('#study-form button[type=submit]').click()
+    page.wait_for_function('app.studyEntries.length===1')
+    assert page.evaluate('app.studyEntries[0].minutes')==30
+    assert page.evaluate("records.studyEntries.size")==1
+    assert page.evaluate("records.planner.get('active').weeklyGoalMinutes")==180
+    page.locator('[data-action="navigate"][data-view="home"]').first.click()
+    assert '30 de 180' in page.locator('.notebox').first.inner_text()
+    print('PASS: planificador, preferencias, sesiones registradas y navegación')
+    m.locator('.mobile-nav [data-action="navigate"][data-view="planner"]').click()
+    assert m.locator('h1').first.inner_text()=='Mi semana de estudio'
+    m.screenshot(path='/mnt/data/EDX-v0.5-mobile.png',full_page=True)
+    print('PASS: planificador móvil')
     assert not issues,issues
     browser.close()
 print('UI_SMOKE_SIMULATED_PASS')
