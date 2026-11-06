@@ -1,7 +1,7 @@
-const CACHE = 'educacion-x-core-v4';
+const CACHE = 'educacion-x-core-v5';
 const SHELL = [
   './', './index.html', './styles.css', './app.js',
-  './core/pedagogy.js', './core/tutor.js', './core/dialogue.js', './core/academy.js', './core/review.js', './core/storage.js', './data/curriculum.js',
+  './core/pedagogy.js', './core/tutor.js', './core/dialogue.js', './core/academy.js', './core/review.js', './core/planner.js', './core/storage.js', './data/curriculum.js',
   './assets/icon.svg', './assets/icon-192.png', './assets/icon-512.png',
   './manifest.webmanifest'
 ];
