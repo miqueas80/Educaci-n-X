@@ -1,4 +1,4 @@
-# EDUCACIÓN X Core — MVP 0.3.0
+# EDUCACIÓN X Core — MVP 0.4.0
 
 **Segunda escuela digital inteligente, en construcción.** Proyecto piloto de Matemática del ciclo básico de secundaria argentina, con dos modos vinculados: **Apoyo escolar** (refuerzo de temas) y **Academia independiente** (progresión sugerida).
 
@@ -13,6 +13,7 @@
 - Selección adaptativa de preguntas por reglas: aumenta o reduce el nivel según los últimos intentos y evita repetir preguntas hasta agotar el banco.
 - Evidencia compartida entre Apoyo y Academia (registro de intentos y criterios de dominio).
 - Mi Academia: programa piloto en tres unidades con lecciones, criterios de dominio y evaluaciones integradoras de 5 preguntas. Aprobación interna al obtener 4/5; no certifica año escolar.
+- **Mis repasos (v0.4):** agenda local por tema basada en el historial real, avisos dentro de la app, sesiones de hasta cinco preguntas con corrección, intervalos formativos de 1/3/7/14/30 días y reinicio sugerido cuando hay errores. No son notificaciones ni validación científica de memoria.
 - Profesor X con diálogo guiado por pasos (guía socrática), memoria de paso solo durante la sesión y revisión del historial de errores.
 - Profesor X v0.3: tutor guiado **basado en reglas**, que usa la evidencia local del alumno para sugerir estudio, revisar errores recientes, mostrar ejemplos, pasos y bases recomendadas. **No es un LLM ni entiende preguntas generales.**
 - Almacenamiento local en IndexedDB; descarga e importación de respaldo JSON; borrado con confirmación; solicitud de persistencia de almacenamiento.
@@ -24,7 +25,7 @@
 - Mantenemos el nombre y la versión 1 de IndexedDB: no hay migración destructiva. Los 40 identificadores de ejercicios originales permanecen y se agregan 16 nuevos.
 - Exportación e importación conservan `educacion-x-backup-v1` y los datos antiguos. Apoyo y Academia mantienen un único progreso.
 - El tutor no envía preguntas ni respuestas a servidores; todas las inferencias son reglas pedagógicas transparentes. No hay IA generativa en esta versión.
-- `sw.js` aumenta su versión de caché a `educacion-x-core-v3` e incorpora el nuevo módulo offline. El navegador debe completar la instalación de la nueva versión para usarla sin conexión.
+- `sw.js` aumenta su versión de caché a `educacion-x-core-v4` e incorpora el motor de repasos offline. El navegador debe completar la instalación de la nueva versión para usarla sin conexión.
 
 ## Ejecutar en PC (Python)
 
@@ -59,7 +60,7 @@ Con Node.js 20+:
 npm test
 ```
 
-Las pruebas cubren también evaluaciones completas e incompletas, recorridos académicos, Profesor X guiado, recomendaciones personalizadas, errores recientes, prerrequisitos y compatibilidad de backups. El test visual simulado se ejecuta con `python3 tests/ui_smoke_mock.py` cuando Chromium y Playwright están disponibles. Existe `python3 tests/browser_real_smoke.py` para validar IndexedDB y Service Worker sobre localhost, que debe correrse fuera de entornos que bloqueen la navegación local.
+Las pruebas cubren repasos programados, fallos, intervalos, importación de respaldos con intentos `review`, evaluaciones completas e incompletas, recorridos académicos, Profesor X guiado, recomendaciones personalizadas, errores recientes, prerrequisitos y compatibilidad de backups. El test visual simulado se ejecuta con `python3 tests/ui_smoke_mock.py` cuando Chromium y Playwright están disponibles. Existe `python3 tests/browser_real_smoke.py` para validar IndexedDB y Service Worker sobre localhost, que debe correrse fuera de entornos que bloqueen la navegación local.
 
 Las pruebas cubren el banco curricular, corrección, seguridad del analizador numérico, diagnóstico vs dominio, selección adaptativa, formato de backups y presencia de recursos PWA.
 
@@ -138,3 +139,13 @@ Ampliar el banco de tareas para evitar repetición a largo plazo; incorporar otr
 ### Actualización desde 0.1/0.2
 
 La IndexedDB no cambia de versión y mantiene el perfil y los intentos existentes. La app pasa a la nueva versión cuando el Service Worker instala la caché v3; se recomienda recargar el sitio online para completar la actualización antes de probar en modo avión.
+
+## v0.4 — Repasos inteligentes sin Internet
+
+- Menú «Mis repasos» accesible en escritorio y móvil, con pendientes y próximos repasos. No se solicita acceso a notificaciones.
+- Los repasos **no se inventan para temas no estudiados**. Después de practicar, una respuesta incorrecta recomienda repasar ahora; una correcta programa según el estado de dominio (1 o 3 días).
+- Aciertos de repaso consecutivos amplían el intervalo de 1 a 3, 7, 14 y hasta 30 días. Un error vuelve a marcar el tema para revisión. Esto es una **heurística inicial** por validar con docentes y estudiantes.
+- Se conserva `educacion-x-backup-v1` e IndexedDB v1; los intentos `mode=review` se guardan en la misma tabla `attempts`. Los respaldos previos siguen funcionando. Los repasos no alteran el criterio de `mastered`, que requiere ejercicios de práctica.
+- Para probar la agenda rápidamente, practicá un tema y comprobá que aparece en «Mis repasos» con fecha posterior (o inmediata si hubo error); las fechas se calculan con el reloj del dispositivo.
+- El Service Worker incluye `core/review.js` en el precaché `educacion-x-core-v4`. La primera actualización necesita conexión; después se mantiene la arquitectura Local-First.
+- La prueba con navegador simulado **no demuestra** IndexedDB ni Service Worker offline reales. La ejecución automatizada en `127.0.0.1` fue bloqueada por la política del entorno; debe repetirse en un navegador normal.

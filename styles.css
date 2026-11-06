@@ -7,3 +7,7 @@
 /* EDUCACIÓN X v0.3: recorrido académico accesible y navegación de 6 destinos */
 .academy-units{display:grid;gap:18px;margin-top:20px}.academy-units .module{gap:12px}.academy-units .module-left{min-width:0}.academy-units .module p{margin:3px 0}.academy-units .module .btn{flex-shrink:0}
 @media(max-width:760px){.mobile-nav{grid-template-columns:repeat(6,minmax(0,1fr))}.mobile-nav .nav-btn{font-size:9px}.mobile-nav .nav-icon{font-size:18px}.academy-units .module{flex-wrap:wrap}.academy-units .module .btn{margin-left:42px}}
+
+/* EDUCACIÓN X v0.4 — bandeja de repasos */
+.review-highlight{border-color:#cdd8fa;background:linear-gradient(120deg,#fff 0%,#f1f5ff 100%)}
+@media(max-width:760px){.review-highlight .buttons{align-items:stretch}.review-highlight .buttons .btn{width:100%}}

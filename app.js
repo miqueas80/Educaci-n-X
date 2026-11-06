@@ -4,6 +4,7 @@ import {openDatabase, getProfile, saveProfile, getAttempts, saveAttempt, replace
 import { learningAdvice } from './core/tutor.js';
 import { tutorTurn } from './core/dialogue.js';
 import { ACADEMY, academyStatus, unitStatus, findUnit, unitAssessmentQuestions } from './core/academy.js';
+import { reviewPlan, reviewDeck } from './core/review.js';
 
 const app = { profile:null, attempts:[], view:'home', topicId:'enteros', activity:null, tutorReply:null, tutorQuery:'', tutorState:null, flash:null };
 const root=document.getElementById('app');
@@ -26,11 +27,11 @@ function navItem(view, icon, title) {
 function sidebar() {
   return `<aside class="sidebar"><div class="brand"><div class="logo"><img src="./assets/icon.svg" alt=""></div><div><strong>EDUCACIÓN X</strong><small>Mi escuela digital</small></div></div>
   <div class="navtitle">Mi espacio</div><nav class="nav" aria-label="Navegación principal">
-    ${navItem('home','⌂','Inicio')}${navItem('path','▦','Mis recorridos')}${navItem('academy','🎓','Mi academia')}${navItem('math','∑','Matemática')}${navItem('diagnostic','◉','Diagnóstico')}${navItem('progress','◫','Mi progreso')}
+    ${navItem('home','⌂','Inicio')}${navItem('path','▦','Mis recorridos')}${navItem('academy','🎓','Mi academia')}${navItem('reviews','↻','Mis repasos')}${navItem('math','∑','Matemática')}${navItem('diagnostic','◉','Diagnóstico')}${navItem('progress','◫','Mi progreso')}
   </nav><div class="navtitle" style="margin-top:23px">Mi cuenta</div><nav class="nav">${navItem('settings','⚙','Datos y privacidad')}</nav><div class="sidebar-spacer"></div>
   <div class="sidecard"><b><span class="side-dot"></span>Motor X Local</b><p>Sin cuentas externas ni envío de respuestas. El progreso se guarda en este dispositivo.</p></div></aside>`;
 }
-function mobileNav() { return `<nav class="mobile-nav" aria-label="Navegación móvil">${navItem('home','⌂','Inicio')}${navItem('path','▦','Rutas')}${navItem('academy','🎓','Academia')}${navItem('math','∑','Mate')}${navItem('progress','◫','Progreso')}${navItem('settings','⚙','Datos')}</nav>`; }
+function mobileNav() { return `<nav class="mobile-nav" aria-label="Navegación móvil">${navItem('home','⌂','Inicio')}${navItem('reviews','↻','Repasos')}${navItem('academy','🎓','Academia')}${navItem('math','∑','Mate')}${navItem('progress','◫','Progreso')}${navItem('settings','⚙','Datos')}</nav>`; }
 function setup() {
   return `<div class="setup-bg"><div class="card setup"><div class="logo"><img src="./assets/icon.svg" alt=""></div><div class="eyebrow">Bienvenido a tu segunda escuela</div>
   <h1>Tu aprendizaje empieza acá.</h1><p>Creá un perfil local. No requiere cuenta, Internet ni datos personales reales.</p>
@@ -41,7 +42,7 @@ function setup() {
   <p class="footnote">Sin registro remoto. Podés exportar tu progreso desde Datos y privacidad. Esto no otorga títulos oficiales.</p></div></div>`;
 }
 function pageTemplate(inner) {
-  const title = {home:'Mi escuela digital',path:'Mis recorridos',academy:'Mi academia',math:'Matemática',diagnostic:'Diagnóstico inicial',progress:'Mi progreso',settings:'Privacidad y datos',lesson:'Aprender Matemática',activity:'Práctica guiada'}[app.view] ?? 'EDUCACIÓN X';
+  const title = {home:'Mi escuela digital',path:'Mis recorridos',academy:'Mi academia',reviews:'Mis repasos',math:'Matemática',diagnostic:'Diagnóstico inicial',progress:'Mi progreso',settings:'Privacidad y datos',lesson:'Aprender Matemática',activity:'Práctica guiada'}[app.view] ?? 'EDUCACIÓN X';
   return `<div class="shell">${sidebar()}<main class="main"><header class="topbar"><h2>${title}</h2><div class="topbar-right"><span class="status ${navigator.onLine?'':'off'}" id="connection">● ${navigator.onLine?'Con red':'Sin red'}</span><span class="small subtle" title="Perfil local">${safe(app.profile.name)}</span><div class="avatar" aria-hidden="true">${safe((app.profile.name||'E').charAt(0).toUpperCase())}</div></div></header><div class="page">${inner}</div></main>${mobileNav()}</div>`;
 }
 function selectTrack() {
@@ -58,10 +59,12 @@ function home(){
   const sum=TOPICS.filter(t=>T(t).mastered).length, practice=app.attempts.filter(a=>a.mode==='practice').length;
   const recommended=recommendTopic(app.attempts,app.profile.track);
   const isAcademy=app.profile.track==='academy';
+  const due=reviewPlan(app.attempts).due.length;
   return `<div class="stack"><div class="page-head"><div><div class="eyebrow">Un nuevo modo de aprender</div><h1>¡Hola, ${safe(app.profile.name)}! 👋</h1><p class="lead">Tu aprendizaje tiene un lugar propio. Elegí cómo avanzar hoy.</p></div>${selectTrack()}</div>
   <section class="hero"><div><div class="eyebrow">${isAcademy?'Tu segundo recorrido académico':'Tu compañero de escuela'}</div><h1>${isAcademy?'Una escuela que sigue tu ritmo.':'Lo que cuesta hoy, se aprende paso a paso.'}</h1><p>${isAcademy?'Recorré un programa progresivo y registrá tus competencias sin depender de tu escuela presencial.':'Reforzá lo que ves en clase, practicá sin presión y preparate para tu próxima evaluación.'}</p><div class="buttons">${button('Continuar: '+safe(recommended.title)+' →','recommended','white')}${button('Hacer diagnóstico','start-diagnostic','ghost')}</div></div></section>
   <section class="grid stats" aria-label="Resumen de progreso"><div class="card stat"><div class="stat-ico">◉</div><b>${sum}/${TOPICS.length}</b><span>Temas dominados</span></div><div class="card stat"><div class="stat-ico">✎</div><b>${practice}</b><span>Ejercicios realizados</span></div><div class="card stat"><div class="stat-ico">⌁</div><b>100%</b><span>Actividades locales</span></div></section>
   <div class="section-title"><h2>Mis temas de Matemática</h2><button class="muted-link" data-action="navigate" data-view="math">Ver todos →</button></div><section class="grid">${TOPICS.slice(0,3).map(topicCard).join('')}</section>
+  ${due?`<div class="notebox amber" role="note"><strong>↻ Tenés ${due} ${due===1?'tema':'temas'} para repasar.</strong> Una sesión breve ayuda a comprobar cuánto recordás. <button class="btn small" data-action="navigate" data-view="reviews" style="margin-left:10px">Ir a mis repasos →</button></div>`:`<div class="notebox" role="note"><strong>↻ Repasos al día.</strong> <button class="muted-link" data-action="navigate" data-view="reviews">Ver próximas sesiones →</button></div>`}
   <div class="notebox"><strong>Una sola trayectoria de aprendizaje.</strong> Apoyo y Academia comparten las evidencias de dominio. Cambiar de recorrido no elimina tus avances.</div></div>`;
 }
 function path(){
@@ -108,10 +111,24 @@ function lesson(){
   <section><h3>Lo importante</h3><p>${safe(t.concept)}</p></section><section><h3>Un ejemplo resuelto</h3><div class="math-example">${safe(t.example)}</div></section>
   <section><h3>Tu estrategia</h3><ol>${t.steps.map(s=>`<li>${safe(s)}</li>`).join('')}</ol></section><section><h3>Error frecuente</h3><p>${safe(t.mistake)}</p></section>
   <section><h3>¿Para qué sirve?</h3><p>${safe(t.application)}</p></section><div class="buttons"><button class="btn" data-action="start-practice" data-topic="${t.id}">Empezar práctica de 5 ejercicios →</button><button class="btn ghost" data-action="navigate" data-view="math">Volver a temas</button></div></div>
-  <aside class="tutor"><div class="tutor-icon">✦</div><h3>Profesor X · Método X v0.3</h3><p class="small subtle" style="margin-top:7px">Uso tu progreso real para darte pistas y explicaciones del tema. Funciono sin Internet.</p><div class="tutor-message" role="status">${safe(app.tutorReply ?? '¿Querés otro ejemplo, un consejo para resolver o repasar el error frecuente?')}</div>
+  <aside class="tutor"><div class="tutor-icon">✦</div><h3>Profesor X · Método X v0.4</h3><p class="small subtle" style="margin-top:7px">Uso tu progreso real para darte pistas y explicaciones del tema. Funciono sin Internet.</p><div class="tutor-message" role="status">${safe(app.tutorReply ?? '¿Querés otro ejemplo, un consejo para resolver o repasar el error frecuente?')}</div>
   <div class="buttons"><button class="btn small ghost" data-action="tutor-prompt" data-prompt="ejemplo">Ejemplo</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="guiame paso a paso">Guía interactiva</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="siguiente">Siguiente paso</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="error">Repasar error</button><button class="btn small ghost" data-action="tutor-prompt" data-prompt="mi avance">Mi avance</button></div>
   <form id="tutor-form" style="margin-top:18px"><label for="tutor-input" class="small"><b>Tu pregunta</b></label><textarea class="input" id="tutor-input" name="question" maxlength="300" placeholder="Ej.: ¿Me explicás los pasos?" style="margin-top:7px"></textarea><button type="submit" class="btn small">Preguntar</button></form><p class="footnote">Tutor conversacional guiado, basado en reglas y evidencias locales. No es un modelo generativo ni entiende consultas libres fuera del contenido.</p></aside></div>`;
 }
+function reviews(){
+  const plan=reviewPlan(app.attempts);
+  const heading = plan.due.length ? `Tenés ${plan.due.length} ${plan.due.length===1?'tema pendiente':'temas pendientes'}` : '¡Tus repasos están al día!';
+  return `<div class="page-head"><div><div class="eyebrow">Método X · Memoria y comprensión</div><h1>Mis repasos inteligentes</h1><p class="lead">Revisá temas ya practicados con preguntas diferentes. Las fechas se calculan en tu dispositivo; no usamos notificaciones ni servidores.</p></div></div>
+  <section class="card pad review-highlight" aria-label="Estado de repaso"><div class="eyebrow">Sesión de hoy</div><h2>${heading}</h2><p class="lead">${plan.due.length?'Elegimos hasta cinco preguntas, una por tema pendiente, para una sesión breve.':'Cuando practiques un tema o llegue su fecha, aparecerá un repaso sugerido.'}</p>
+    <div class="buttons"><button class="btn" data-action="start-review" ${plan.due.length?'':'disabled aria-disabled="true"'}>Empezar repaso ${plan.due.length?'de '+Math.min(5,plan.due.length)+' preguntas':'(sin pendientes)'}</button><button class="btn ghost" data-action="navigate" data-view="math">Ver temas</button></div></section>
+  <div class="section-title"><h2>Para repasar ahora</h2></div>
+  <div class="card">${plan.due.length?plan.due.map(x=>`<div class="module"><div class="module-left"><span class="module-num">↻</span><div><b>${safe(x.topic.title)}</b><p>${x.lastCorrect===false?'Hubo un error: conviene repasar la explicación.':'Programado según la última práctica o repaso.'}</p></div></div><span class="pill mid">Pendiente</span></div>`).join(''):'<div class="pad empty">Todavía no tenés repasos pendientes.</div>'}</div>
+  <div class="section-title"><h2>Próximos repasos</h2></div>
+  <div class="card">${plan.upcoming.length?plan.upcoming.map(x=>`<div class="module"><div class="module-left"><span class="module-num">${safe(x.topic.icon)}</span><div><b>${safe(x.topic.title)}</b><p>Próximo: ${fmt(x.dueAt)}</p></div></div><span class="pill">Programado</span></div>`).join(''):'<div class="pad empty">No hay repasos programados todavía.</div>'}</div>
+  ${plan.notStarted.length?`<p class="footnote">Temas sin práctica: ${plan.notStarted.map(x=>safe(x.topic.title)).join(', ')}. No generamos repasos ficticios; primero necesitás resolver ejercicios.</p>`:''}
+  <div class="notebox amber" role="note" style="margin-top:24px"><strong>Importante:</strong> los intervalos de 1, 3, 7, 14 y 30 días son recomendaciones iniciales, no una medición científica de memoria ni una calificación. Un repaso no concede automáticamente dominio.</div>`;
+}
+
 function diagnostic(){
   const done=app.attempts.filter(a=>a.mode==='diagnostic');
   return `<div class="page-head"><div><div class="eyebrow">Punto de partida · Matemática</div><h1>Descubrí qué reforzar</h1><p class="lead">Respondé ${TOPICS.length} preguntas exploratorias, una por tema. No recibís una nota ni se certifica dominio.</p></div></div>
@@ -121,10 +138,10 @@ function diagnostic(){
 function activityView(){
   const s=app.activity; if(!s) return diagnostic();
   if (s.complete) return resultView();
-  const question=s.mode==='diagnostic'||s.mode==='assessment'?s.questions[s.index]:s.question;
-  const title=s.mode==='diagnostic'?'Diagnóstico exploratorio':s.mode==='assessment'?'Evaluación: '+findUnit(s.unitId).title:'Práctica: '+TOPIC_BY_ID[s.topicId].title;
-  const count=(s.mode==='diagnostic'||s.mode==='assessment')?s.index+1:s.count+(s.feedback?0:1);
-  const total=(s.mode==='diagnostic'||s.mode==='assessment')?s.questions.length:5;
+  const question=['diagnostic','assessment','review'].includes(s.mode)?s.questions[s.index]:s.question;
+  const title=s.mode==='diagnostic'?'Diagnóstico exploratorio':s.mode==='assessment'?'Evaluación: '+findUnit(s.unitId).title:s.mode==='review'?'Repaso inteligente':'Práctica: '+TOPIC_BY_ID[s.topicId].title;
+  const count=['diagnostic','assessment','review'].includes(s.mode)?s.index+1:s.count+(s.feedback?0:1);
+  const total=['diagnostic','assessment','review'].includes(s.mode)?s.questions.length:5;
   return `<div class="quiz"><div class="quiz-head"><div><div class="eyebrow">Motor pedagógico X</div><h1>${safe(title)}</h1></div><button class="btn small ghost" data-action="quit-activity">Salir</button></div>
   <div class="card pad"><div class="row" style="justify-content:space-between"><span class="tag">Pregunta ${count} de ${total}</span><span class="pill">Nivel ${question.level}</span></div>
   <div class="progress" style="margin-top:16px" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${count-1}" aria-label="Preguntas completadas"><div class="bar" style="width:${((count-1)/total)*100}%"></div></div>
@@ -141,21 +158,24 @@ function resultView(){
   const recommended=recommendTopic(app.attempts,app.profile.track);
   const isDiag=s.mode==='diagnostic';
   const isAssessment=s.mode==='assessment';
+  const isReview=s.mode==='review';
   const passed=isAssessment && s.results.length===5 && ok>=4;
-  return `<div class="card pad result-card"><div class="result-emoji">${ok>=Math.ceil(s.results.length*0.8)?'🌟':'🌱'}</div><div class="eyebrow">${isDiag?'Diagnóstico finalizado':isAssessment?'Evaluación integradora completada':'Sesión completada'}</div><h1>Respondiste ${ok} de ${s.results.length} preguntas correctamente.</h1>
-  <p class="lead" style="margin:16px auto">${isDiag?'Ya tenemos un primer mapa orientativo. No es una calificación escolar ni prueba dominio.':isAssessment?(passed?'Aprobaste esta unidad como hito de aprendizaje interno. No es acreditación oficial.':'Todavía no alcanzaste el criterio interno (4/5). Repasá los temas y volvé a evaluar.'):'Cada intento es parte del aprendizaje. Tus avances se registraron y se compartirán entre Apoyo y Academia.'}</p>
+  return `<div class="card pad result-card"><div class="result-emoji">${ok>=Math.ceil(s.results.length*0.8)?'🌟':'🌱'}</div><div class="eyebrow">${isDiag?'Diagnóstico finalizado':isAssessment?'Evaluación integradora completada':isReview?'Repaso completado':'Sesión completada'}</div><h1>Respondiste ${ok} de ${s.results.length} preguntas correctamente.</h1>
+  <p class="lead" style="margin:16px auto">${isDiag?'Ya tenemos un primer mapa orientativo. No es una calificación escolar ni prueba dominio.':isAssessment?(passed?'Aprobaste esta unidad como hito de aprendizaje interno. No es acreditación oficial.':'Todavía no alcanzaste el criterio interno (4/5). Repasá los temas y volvé a evaluar.'):isReview?'Tus repasos se guardaron. Una respuesta incorrecta señala que conviene revisar la clase, no que perdiste una calificación.':'Cada intento es parte del aprendizaje. Tus avances se registraron y se compartirán entre Apoyo y Academia.'}</p>
   ${isAssessment?`<div class="notebox" style="text-align:left;margin-top:22px"><strong>Devolución de la evaluación:</strong>${s.results.map((a,i)=>{const q=QUESTION_BY_ID[a.questionId];return `<p><b>${i+1}. ${a.correct?'Correcto':'Para repasar'}</b> · ${safe(TOPIC_BY_ID[a.topic].title)}: ${safe(q.explanation)}</p>`}).join('')}</div>`:`<div class="notebox" style="text-align:left;margin-top:22px"><strong>Recomendación del Motor X:</strong> seguir con ${safe(recommended.title)}.</div>`}
-  <div class="buttons" style="justify-content:center">${isAssessment?button('Volver a Mi Academia','navigate','ghost') .replace('data-action="navigate"','data-action="navigate" data-view="academy"'):button('Ir a la clase recomendada →','recommended')}${button('Ver mi progreso','go-progress','ghost')}</div></div>`;
+  <div class="buttons" style="justify-content:center">${isAssessment?button('Volver a Mi Academia','navigate','ghost') .replace('data-action="navigate"','data-action="navigate" data-view="academy"'):isReview?'<button class="btn" data-action="navigate" data-view="reviews">Volver a mis repasos →</button>':button('Ir a la clase recomendada →','recommended')}${button('Ver mi progreso','go-progress','ghost')}</div></div>`;
 }
 function progress(){
   const total=app.attempts.filter(a=>a.mode==='practice').length;
   const correct=app.attempts.filter(a=>a.mode==='practice' && a.correct).length;
   const mastered=TOPICS.filter(t=>T(t).mastered).length;
   const last=app.attempts.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  const dueCount=reviewPlan(app.attempts).due.length;
   return `<div class="page-head"><div><div class="eyebrow">Evidencia, no solamente calificaciones</div><h1>Tu progreso</h1><p class="lead">El dominio se calcula con respuestas recientes, diferentes preguntas y al menos una de dificultad intermedia.</p></div></div>
   <div class="grid stats"><div class="card stat"><span>Ejercicios de práctica</span><b>${total}</b></div><div class="card stat"><span>Respuestas correctas</span><b>${correct}</b></div><div class="card stat"><span>Temas dominados</span><b>${mastered}/${TOPICS.length}</b></div></div>
+  <div class="notebox ${dueCount?'amber':''}" style="margin-top:18px"><strong>Repasos pendientes: ${dueCount}.</strong> <button class="muted-link" data-action="navigate" data-view="reviews">Consultar mi plan de repaso →</button></div>
   <div class="section-title"><h2>Dominio por tema</h2></div><div class="card">${TOPICS.map(t=>{const s=T(t);return `<div class="module"><div style="flex:1;max-width:750px"><div class="row" style="justify-content:space-between"><b>${safe(t.title)}</b><span class="small subtle">${s.status} · ${s.accuracy}% últimos intentos</span></div><div class="progress" style="margin-top:9px"><div class="bar" style="width:${s.progress}%"></div></div><p>${s.total} respuestas de práctica · ${s.distinct} preguntas distintas correctas recientemente</p></div></div>`}).join('')}</div>
-  <div class="section-title"><h2>Actividad reciente</h2></div><div class="card">${last.length?last.map(a=>`<div class="module"><div class="module-left"><div class="module-num">${a.correct?'✓':'↗'}</div><div><b>${safe(TOPIC_BY_ID[a.topic]?.title||'Tema')}</b><p>${a.mode==='diagnostic'?'Diagnóstico':'Práctica'} · ${trackTitle(a.track)} · ${fmt(a.date)}</p></div></div><span class="pill ${a.correct?'good':'mid'}">${a.correct?'Correcta':'Para repasar'}</span></div>`).join(''):`<div class="pad empty">Todavía no hay actividad registrada.</div>`}</div>
+  <div class="section-title"><h2>Actividad reciente</h2></div><div class="card">${last.length?last.map(a=>`<div class="module"><div class="module-left"><div class="module-num">${a.correct?'✓':'↗'}</div><div><b>${safe(TOPIC_BY_ID[a.topic]?.title||'Tema')}</b><p>${a.mode==='diagnostic'?'Diagnóstico':a.mode==='review'?'Repaso':a.mode==='assessment'?'Evaluación':'Práctica'} · ${trackTitle(a.track)} · ${fmt(a.date)}</p></div></div><span class="pill ${a.correct?'good':'mid'}">${a.correct?'Correcta':'Para repasar'}</span></div>`).join(''):`<div class="pad empty">Todavía no hay actividad registrada.</div>`}</div>
   <p class="footnote">Indicadores internos del piloto. No constituyen notas oficiales, certificados ni acreditaciones.</p>`;
 }
 function settings(){
@@ -170,7 +190,7 @@ function settings(){
   <div class="card pad"><h2>Borrar mis datos</h2><p class="lead">Elimina definitivamente el perfil y todas las respuestas de este dispositivo. Primero exportá una copia si querés conservarlos.</p><div class="buttons"><button class="btn warn" data-action="clear">Eliminar perfil y progreso</button></div></div></div>`;
 }
 function render(){
-  const screens={home,path,academy,math,diagnostic,progress,settings,lesson,activity:activityView};
+  const screens={home,path,academy,reviews,math,diagnostic,progress,settings,lesson,activity:activityView};
   root.innerHTML = app.profile ? pageTemplate((screens[app.view]||home)()) : setup();
   const answer=document.getElementById('answer');
   if(answer) answer.focus({preventScroll:true});
@@ -192,6 +212,11 @@ root.addEventListener('click',async event=>{
     }
     if(action==='recommended'){app.topicId=recommendTopic(app.attempts,app.profile.track).id;changeView('lesson');return;}
     if(action==='lesson'){app.topicId=btn.dataset.topic;changeView('lesson');return;}
+    if(action==='start-review'){
+      const questions=reviewDeck(app.attempts);
+      if(!questions.length){flash('No hay repasos pendientes por ahora.');return;}
+      app.activity={mode:'review',questions,index:0,results:[],feedback:null};app.view='activity';render();return;
+    }
     if(action==='start-diagnostic'){app.activity={mode:'diagnostic',questions:diagnosticQuestions(),index:0,results:[],feedback:null};app.view='activity';render();return;}
     if(action==='start-assessment'){
       const unit=findUnit(btn.dataset.unit);
@@ -203,11 +228,11 @@ root.addEventListener('click',async event=>{
     if(action==='show-hint'){app.activity.hintVisible=true;render();return;}
     if(action==='next-question'){
       const s=app.activity;if(!s?.feedback)return;
-      if(s.mode==='diagnostic'){s.index++;if(s.index>=s.questions.length)s.complete=true;}
+      if(s.mode==='diagnostic'||s.mode==='review'){s.index++;if(s.index>=s.questions.length)s.complete=true;}
       else {if(s.count>=5)s.complete=true;else s.question=selectNextQuestion(s.topicId,app.attempts);}
       s.feedback=null;s.hintVisible=false;render();return;
     }
-    if(action==='quit-activity'){changeView(app.activity?.mode==='practice'?'lesson':app.activity?.mode==='assessment'?'academy':'diagnostic');return;}
+    if(action==='quit-activity'){changeView(app.activity?.mode==='practice'?'lesson':app.activity?.mode==='assessment'?'academy':app.activity?.mode==='review'?'reviews':'diagnostic');return;}
     if(action==='tutor-prompt'){const turn=tutorTurn(btn.dataset.prompt,TOPIC_BY_ID[app.topicId],app.attempts,app.profile.track,app.tutorState);app.tutorReply=turn.reply;app.tutorState=turn.state;render();return;}
     if(action==='export'){
       const backup={format:'educacion-x-backup-v1',exportedAt:new Date().toISOString(),profile:app.profile,attempts:app.attempts};
@@ -249,7 +274,7 @@ root.addEventListener('submit',async event=>{
     }
     if(form.id==='answer-form'){
       const s=app.activity;if(!s || s.feedback)return;
-      const q=s.mode==='diagnostic'||s.mode==='assessment'?s.questions[s.index]:s.question;
+      const q=['diagnostic','assessment','review'].includes(s.mode)?s.questions[s.index]:s.question;
       const answer=String(data.get('answer')||'').trim();
       const checked=checkAnswer(q,answer);
       if(!checked.valid){flash(checked.message,true);return;}

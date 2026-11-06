@@ -1,4 +1,4 @@
-# Arquitectura técnica — EDUCACIÓN X Core 0.2
+# Arquitectura técnica — EDUCACIÓN X Core 0.4
 
 ## Límites del MVP
 
@@ -16,7 +16,7 @@
 // Perfil
 { name: 'Estudiante', grade: 2, track: 'support' | 'academy' }
 // Intento
-{ id, questionId, topic, mode: 'diagnostic' | 'practice',
+{ id, questionId, topic, mode: 'diagnostic' | 'practice' | 'assessment' | 'review',
   track: 'support' | 'academy', correct: true, answer: '3/4',
   date: '2026-10-13T05:00:00.000Z' }
 ```
@@ -71,3 +71,12 @@ No constituye una nota ni certificación; requiere revisión empírica educativa
 - Profesor X: `core/dialogue.js` añade una máquina de estados efímera para guiar paso a paso mediante contenido verificado del tema; no interpreta libremente todas las entradas.
 - Seguridad: se mantiene la validación del valor numérico sin `eval`; corrección determinista; sin telemetría ni servicios de IA externos.
 - Límite: estos logros no equivalen a notas, títulos ni promoción oficial de curso escolar.
+
+## v0.4 — Agenda de repasos
+
+- `core/review.js` recibe historial, tema y fecha inyectable; produce el estado (`not-started`, `scheduled`, `due`), la fecha de próximo repaso y un conjunto de preguntas no duplicadas por sesión.
+- Los intervalos [1, 3, 7, 14, 30] días se amplían solo tras repaso correcto consecutivo; práctica reciente reinicia la cadencia; repaso incorrecto requiere revisión inmediata.
+- No se otorga dominio por repaso; `topicStats` mantiene su criterio exclusivo sobre `mode=practice`. La sesión en UI devuelve corrección y explicación por pregunta.
+- Una nueva modalidad `review` se incorpora al contrato `educacion-x-backup-v1` existente. No cambia la versión de IndexedDB, los IDs históricos ni las reglas de evaluación.
+- `sw.js` precachea `core/review.js` con una nueva versión para renovación; todo se ejecuta offline sin transmisión a terceros.
+- Limitaciones: los resultados no son calificaciones, las fechas dependen del reloj local, no hay notificaciones push, y la evaluación pedagógica de los intervalos está pendiente.

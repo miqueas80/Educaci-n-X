@@ -20,11 +20,11 @@ with sync_playwright() as p:
     page.locator('[data-action="lesson"][data-topic="enteros"]').first.click()
     assert page.get_by_text('Los números enteros incluyen').count()
     page.locator('[data-action="tutor-prompt"][data-prompt="ejemplo"]').click()
-    assert 'Veamos un ejemplo' in page.locator('.tutor-message').inner_text()
+    assert 'Trabajemos con un ejemplo' in page.locator('.tutor-message').inner_text()
     print('OK: lección y tutor por reglas offline')
     page.locator('[data-action="start-practice"]').click()
     ids=[]
-    for i in range(5):
+    for i in range(7):
         prompt=page.locator('.question').inner_text()
         d=page.evaluate('async (prompt) => {const m=await import("./data/curriculum.js");const q=m.QUESTIONS.find(q=>q.prompt===prompt);return {id:q.id,answer:q.answer}}',prompt)
         ids.append(d['id'])
@@ -46,21 +46,21 @@ with sync_playwright() as p:
     assert 'Estudiante prueba' in page.locator('.topbar').inner_text()
     page.locator('[data-action="navigate"][data-view="diagnostic"]').first.click()
     page.locator('[data-action="start-diagnostic"]').click()
-    for i in range(5):
+    for i in range(7):
         prompt=page.locator('.question').inner_text()
         d=page.evaluate('async (prompt) => {const m=await import("./data/curriculum.js");const q=m.QUESTIONS.find(q=>q.prompt===prompt);return {answer:q.answer}}',prompt)
         page.locator('#answer').fill(str(d['answer']))
         page.locator('#answer-form button[type="submit"]').click()
         page.locator('[data-action="next-question"]').click()
-    assert 'Respondiste 5 de 5' in page.locator('h1').first.inner_text()
-    print('OK: diagnóstico 5 áreas, recarga con IndexedDB')
+    assert 'Respondiste 7 de 7' in page.locator('h1').first.inner_text()
+    print('OK: diagnóstico 7 áreas, recarga con IndexedDB')
     page.locator('[data-action="navigate"][data-view="settings"]').first.click()
     with page.expect_download() as download:
         page.locator('[data-action="export"]').click()
     target='/mnt/data/educacion-x-core/tests/export-smoke.json'
     download.value.save_as(target)
     with open(target) as f: backup=json.load(f)
-    assert backup['format']=='educacion-x-backup-v1' and len(backup['attempts'])==10
+    assert backup['format']=='educacion-x-backup-v1' and len(backup['attempts'])==12
     print('OK: exportación de respaldo JSON')
     # Servicio worker: el controlador tras recarga debe funcionar en desconexión real de red.
     page.reload(wait_until='networkidle')

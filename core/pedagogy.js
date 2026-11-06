@@ -107,7 +107,7 @@ export function validateBackup(data) {
   };
   const ids = new Set();
   const attempts = data.attempts.map(a => {
-    if (!a || typeof a.id !== 'string' || a.id.length>100 || ids.has(a.id) || !QUESTION_BY_ID[a.questionId] || !['diagnostic','practice','assessment'].includes(a.mode) || (a.mode==='assessment' && (typeof a.sessionId !== 'string' || !/^[a-zA-Z0-9-]{8,100}$/.test(a.sessionId))) || !['support','academy'].includes(a.track) || typeof a.correct !== 'boolean' || typeof a.date !== 'string' || !Number.isFinite(Date.parse(a.date)) || a.topic !== QUESTION_BY_ID[a.questionId].topic || typeof a.answer !== 'string' || a.answer.length>80 || checkAnswer(QUESTION_BY_ID[a.questionId],a.answer).correct !== a.correct) {
+    if (!a || typeof a.id !== 'string' || a.id.length>100 || ids.has(a.id) || !QUESTION_BY_ID[a.questionId] || !['diagnostic','practice','assessment','review'].includes(a.mode) || (a.mode==='assessment' && (typeof a.sessionId !== 'string' || !/^[a-zA-Z0-9-]{8,100}$/.test(a.sessionId))) || !['support','academy'].includes(a.track) || typeof a.correct !== 'boolean' || typeof a.date !== 'string' || !Number.isFinite(Date.parse(a.date)) || a.topic !== QUESTION_BY_ID[a.questionId].topic || typeof a.answer !== 'string' || a.answer.length>80 || checkAnswer(QUESTION_BY_ID[a.questionId],a.answer).correct !== a.correct) {
       throw new Error('La copia contiene un registro inválido. No se importó nada.');
     }
     ids.add(a.id);

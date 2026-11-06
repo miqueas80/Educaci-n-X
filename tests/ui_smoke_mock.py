@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 import re
 base=Path(__file__).resolve().parent.parent
 js=''
-for file in ['data/curriculum.js','core/pedagogy.js','core/tutor.js','core/academy.js','core/dialogue.js','core/storage.js','app.js']:
+for file in ['data/curriculum.js','core/pedagogy.js','core/tutor.js','core/academy.js','core/dialogue.js','core/review.js','core/storage.js','app.js']:
     part=(base/file).read_text()
     part=re.sub(r'^import .*?;\s*$', '',part, flags=re.M)
     part=re.sub(r'\bexport\s+(?=(const|function|async|class|let)\b)','',part)
@@ -112,6 +112,28 @@ with sync_playwright() as p:
     page.locator('[data-action="navigate"][data-view="home"]').first.click()
     assert '5/5' not in page.locator('.page').inner_text() # Solo enteros dominado.
     print('PASS: navegación/settings')
+    # v0.4: repaso real de una evidencia antigua, sin crear dominio artificial.
+    page.evaluate("""() => {
+      for (const item of app.attempts.filter(a=>a.topic==='enteros' && a.mode==='practice')) {
+        item.date='2026-10-01T12:00:00.000Z';
+      }
+      render();
+    }""")
+    page.locator('[data-action="navigate"][data-view="reviews"]').first.click()
+    assert '1 tema pendiente' in page.locator('.review-highlight').inner_text()
+    page.locator('[data-action="start-review"]').click()
+    assert 'Repaso inteligente' in page.locator('h1').first.inner_text()
+    prompt=page.locator('.question').inner_text()
+    question=next(q for q in questions if q['prompt']==prompt)
+    page.locator('#answer').fill(str(question['answer']))
+    page.locator('#answer-form button[type=submit]').click()
+    assert '¡Bien resuelto!' in page.locator('.feedback').inner_text()
+    page.locator('[data-action="next-question"]').click()
+    assert 'repaso completado' in page.locator('.result-card').inner_text().lower()
+    page.locator('[data-action="navigate"][data-view="reviews"]').first.click()
+    assert 'Tus repasos están al día' in page.locator('.review-highlight').inner_text()
+    assert page.evaluate("app.attempts.filter(a=>a.mode==='review').length") == 1
+    print('PASS: repaso pendiente, corrección, guardado y reagendado')
     m=context.new_page();m.set_viewport_size({'width':390,'height':844});m.set_content(html,wait_until='load')
     m.get_by_text('Tu aprendizaje empieza acá.').wait_for()
     m.locator('#setup-form button[type=submit]').click()
